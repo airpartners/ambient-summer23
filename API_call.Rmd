@@ -1,0 +1,44 @@
+---
+title: "API Call"
+author: "Cherry Pham"
+date: "2023-06-20"
+output: html_document
+---
+
+## PACKAGES AND INITIAL SETTINGS
+
+```{r}
+library(httr, jsonlite)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+```
+
+## DEFINE API
+
+```{r}
+base_url <- "https://api.quant-aq.com/device-api/v1/devices/"
+api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
+device_url <- "MOD-PM-00222/data/raw"
+```
+
+## CALLING DEVICE API
+
+```{r}
+# Send GET request
+raw_data <- GET(
+  url = paste0(base_url, device_url),
+  authenticate(api_key, "", type = "basic")
+)
+```
+
+## VISUALIZING RESULTS
+
+```{r}
+# Convert response to text
+content_test <- content(raw_data, as = 'text')
+
+# Parse JSON content
+content_json_test <- fromJSON(content_test)
+
+# View content structure
+glimpse(content_json_test)
+```
