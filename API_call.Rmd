@@ -34,12 +34,9 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE)
 ```{r}
 base_url <- "https://api.quant-aq.com/device-api/v1/devices/"
 api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
-# params <- list(
-#   start = "2022-07-01",
-#   end = "2022-09-30"
-# )
+
 # Define a time range to loop over until I find a better way
-time_range <- seq(as.Date("2022-07-17"), as.Date("2022-07-17"), by = "day")
+time_range <- seq(as.Date("2022-07-01"), as.Date("2022-09-30"), by = "day")
 time_range <- format(time_range, "%Y-%m-%d")
 
 # Define a list of device IDs
@@ -79,7 +76,6 @@ if (!file.exists(data_folder_path)) {
 
 # Function to process a single device ID
 process_device_id <- function(device_id, date) {
-  print(paste0(device_id, " ", date))
   # Construct device URL for API call
   device_url <- paste0(device_id, "/data-by-date/raw/", date, "/")
   
@@ -91,21 +87,17 @@ process_device_id <- function(device_id, date) {
   )
   
   data <- content(raw_data, as = "text", encoding = "UTF-8")
-  # print(print(paste0(device_id, " ", date, " ", length(data))))
   parsed_data <- fromJSON(data)
-
-  # # Check if the data is empty or has zero rows
-  # if (is.null(parsed_data) || is.null(parsed_data$data) || length(parsed_data$data) == 0) {
-  #   # print(paste0("No data"))
-  #   # Skip processing if the data is empty
-  #   return()
-  # }
+  
+  # Check if the data is empty or has zero rows
+  if (is.null(parsed_data) || is.null(parsed_data$data) || length(parsed_data$data) == 0) {
+    # Skip processing if the data is empty
+    return()
+  }
 
   # Extract relevant data
-  # print(paste0("There's data"))
   df <- as.data.frame(parsed_data$data)
-
-  # Create the device-specific folder if it doesn't exist
+  
   device_folder_path <- paste0("./data/MOD-PM/", device_id)
   if (!file.exists(device_folder_path)) {
     dir.create(device_folder_path, recursive = TRUE)
@@ -113,7 +105,18 @@ process_device_id <- function(device_id, date) {
 
   # Save data to CSV file named after the device ID
   csv_file_path <- paste0("./data/MOD-PM/", device_id, "/", device_id, "-", date, ".csv")
-  write.csv(df, file = csv_file_path, row.names = FALSE, fileEncoding = "UTF-8")
+  
+  # Try writing the CSV file and handle errors
+  tryCatch(
+    {
+      # Create the device - specific folder if it doesn't exist
+      write.csv(df, file = csv_file_path, row.names = FALSE, fileEncoding = "UTF-8")
+    },
+    error = function(e) {
+      print(paste0(device_id, " ", date))
+      print(paste("Error writing CSV file for", device_id, "on", date))
+    }
+  )
 }
 
 # Process each device ID over time range
@@ -123,27 +126,3 @@ for (device_id in device_ids) {
   }
 }
 ```
-
-## VISUALIZING RESULTS
-
-
-<!-- ```{r} -->
-<!-- # Read CSV file -->
-<!-- data_file_path <- "./data/MOD-PM/" -->
-<!-- device_SN <- "MOD-00024-43433b96b25547eabb5c70e1800a0c42" -->
-<!-- file_path <- paste0(data_file_path, device_SN, ".csv") -->
-<!-- str(file_path) -->
-<!-- data <- read.csv(file_path) -->
-
-<!-- # Glimpse the data -->
-<!-- print(names(data)) -->
-
-<!-- data_file_path <- "./data/MOD-PM/" -->
-<!-- device_SN <- "MOD-00024" -->
-<!-- file_path <- paste0(data_file_path, device_SN, ".csv") -->
-<!-- str(file_path) -->
-<!-- data2 <- read.csv(file_path) -->
-
-<!-- # Glimpse the data -->
-<!-- print(names(data2)) -->
-<!-- ``` -->
