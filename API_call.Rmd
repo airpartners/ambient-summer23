@@ -25,6 +25,15 @@ install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 # Load required packages
 invisible(sapply(packages, library, character.only = TRUE))
 
+# Explicit package function calls
+httr::GET
+jsonlite::fromJSON
+jsonlite::content
+purrr::map_df
+dplyr::as_data_frame
+dplyr::filter
+dplyr::lag
+
 # Set options
 knitr::opts_chunk$set(echo=FALSE, message=FALSE)
 ```
@@ -90,33 +99,41 @@ process_device_id <- function(device_id, date) {
   parsed_data <- fromJSON(data)
   
   # Check if the data is empty or has zero rows
-  if (is.null(parsed_data) || is.null(parsed_data$data) || length(parsed_data$data) == 0) {
+  if (is.null(parsed_data) ||
+      is.null(parsed_data$data) || length(parsed_data$data) == 0) {
     # Skip processing if the data is empty
     return()
   }
-
+  
   # Extract relevant data
   df <- as.data.frame(parsed_data$data)
   
-  device_folder_path <- paste0("./data/MOD-PM/", device_id)
-  if (!file.exists(device_folder_path)) {
+  device_folder_path <- file.path(data_folder_path, device_id)
+  
+  # Save data to CSV file named after the device ID only if the data is not empty
+  
+  if (!dir.exists(device_folder_path)) {
     dir.create(device_folder_path, recursive = TRUE)
   }
-
-  # Save data to CSV file named after the device ID
-  csv_file_path <- paste0("./data/MOD-PM/", device_id, "/", device_id, "-", date, ".csv")
+  
+  # Save data to CSV file
+  csv_file_path <-
+    file.path(device_folder_path, paste0(device_id, "-", date, ".csv"))
   
   # Try writing the CSV file and handle errors
-  tryCatch(
-    {
-      # Create the device - specific folder if it doesn't exist
-      write.csv(df, file = csv_file_path, row.names = FALSE, fileEncoding = "UTF-8")
-    },
-    error = function(e) {
-      print(paste0(device_id, " ", date))
-      print(paste("Error writing CSV file for", device_id, "on", date))
-    }
-  )
+  tryCatch({
+    write.csv(df,
+              file = csv_file_path,
+              row.names = FALSE,
+              fileEncoding = "UTF-8")
+  },
+  error = function(e) {
+    cat(
+      paste0("Error writing CSV file for", device_id, "on", date, "\n"),
+      file = "error_log.txt",
+      append = TRUE
+    )
+  })
 }
 
 # Process each device ID over time range
