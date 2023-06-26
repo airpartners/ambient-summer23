@@ -1,0 +1,162 @@
+---
+title: "Graphing Base"
+author: "Cherry Pham"
+date: "2023-06-26"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+[Markdown file docstrings]
+
+## PACKAGES AND INITIAL SETTINGS
+
+```{r}
+# Check and install required packages if necessary
+packages <- c(
+  "lubridate",   # Package for working with dates and times
+  "data.table",  # Package for efficient data manipulation and processing
+  "dplyr",       # Package for data manipulation and transformation
+  "tidyr",       # Package for data tidying and reshaping
+  "openair",     # Package for analyzing air pollution data
+  "stringr",     # Package for string manipulation
+  "baseline",    # Package for baseline modeling and adjustment
+  "purrr",       # Package for functional programming
+  "tidyverse",   # Meta-package that includes several tidyverse packages for data science
+  "openairmaps"  # Package for accessing open air pollution data
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+```
+
+## IMPORT DATA AND PRE-PROCESSING
+```{r}
+# Quant-AQ data
+modPM <- list.files(path = "./data/Quant-AQ/MOD-PM",
+                    pattern = "*.csv", 
+                    full.names = TRUE) %>%
+  purrr::map_dfr(read_csv)
+
+modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
+modPM$date <- lubridate::as_datetime(modPM$timestamp_local, tz = "America/New_York")
+
+# Meteorology data
+metdata <- data.table::fread("data/metdata.csv", header = TRUE, data.table = TRUE)
+metdata$date <- lubridate::as_datetime(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York")
+
+metdata <- metdata %>%
+  setnames(old = c("drct", "sped", "valid"), new = c("wd", "ws", "original_met_time")) %>% 
+  na.omit() %>% 
+  complete(date = seq(from = min(date), to = max(date), by = "1 min")) %>% 
+  fill(c("wd", "ws", "tmpc"))
+
+metdata$ws <- metdata$ws * (1609/3600)
+metdata$station <- NULL
+metdata <- unique(metdata)
+
+
+# Time sync and merge met and pollution data
+modPM$modPM_date_1min <- lubridate::round_date(modPM$date, unit = "minute")
+metdata$met_date_1min <- lubridate::round_date(metdata$date, unit = "minute")
+
+# Merge the two datasets
+modPM_met <- dplyr::left_join(modPM, metdata, by = c("modPM_date_1min" = "met_date_1min"))
+modPM_met$date <- modPM_met$date.x
+
+# Sanity check
+openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+```
+```{r}
+# TimePlots
+
+class(date)
+timePlot(modPM_met, pollutant = c("pm1", "pm25", "pm10"))
+timePlot(modPM_met, pollutant = c("wd", "ws"))
+```
+
+```{r}
+# Diurnals
+timeVariation(modPM_met, pollutant = c("pm1", "pm25", "pm10"), local.tz= "America/New_York") 
+
+```
+
+```{r}
+# Remove zero wind speeds
+modPM_met_nz <- modPM_met
+modPM_met_nz$ws[modPM_met_nz$ws==0]<-NA
+
+```
+
+```{r}
+# Polar Plots - IQR
+  polarPlot(modPM_met_nz, pollutant = "pm1", limits = c(0,15), main = paste0("Gibson Park ", "PM1 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm25", limits = c(0,20), main = paste0("Gibson Park ", "PM2.5 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm10", limits = c(0,30),  main = paste0("Gibson Park ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+# Polar Plots as weighted mean
+  polarPlot(modPM_met_nz, pollutant = "pm1", statistic = "weighted.mean", normalise = TRUE,main = paste0("Gibson Park ", "PM1 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm25",statistic = "weighted.mean", normalise = TRUE, main = paste0("Gibson Park ", "PM2.5 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm10",statistic = "weighted.mean", normalise = TRUE, main = paste0("Gibson Park ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+  polarFreq(modPM_met_nz, pollutant = "pm1",  statistic = "weighted.mean", main = paste0("Gibson Park ", "PM1 Polar Plot", sep= " "))
+  polarFreq(modPM_met_nz, pollutant = "pm25", statistic = "weighted.mean",  main = paste0("Gibson Park ", "PM2.5 Polar Plot", sep= " "))
+  polarFreq(modPM_met_nz, pollutant = "pm10", statistic = "weighted.mean",  main = paste0("Gibson Park ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+polarFreq(modPM_met_nz, pollutant = "pm1", ws.int = 30, statistic = "weighted.mean", offset = 80, trans = FALSE, col = "heat", main = paste0("Gibson Park ", "PM1 Polar Plot", sep= " "))
+polarFreq(modPM_met_nz, pollutant = "pm25", ws.int = 30, statistic = "weighted.mean", offset = 80, trans = FALSE, col = "heat", main = paste0("Gibson Park ", "PM2.5 Polar Plot", sep= " "))
+polarFreq(modPM_met_nz, pollutant = "pm10", ws.int = 30, statistic = "weighted.mean", offset = 80, trans = FALSE, col = "heat", main = paste0("Gibson Park ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+polarFreq(modPM_met_nz, pollutant = "pm1", ws.int = 30, statistic = "frequency", offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm25", ws.int = 30, statistic = "frequency", offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm10", ws.int = 30, statistic = "frequency", offset = 80, trans = FALSE, col = "heat")
+```
+
+```{r}
+polarFreq(modPM_met_nz, pollutant = "pm1", ws.int = 30,  offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm25", ws.int = 30,  offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm10", ws.int = 30,  offset = 80, trans = FALSE, col = "heat")
+```
+
+```{r}
+modPM_met_nz$lat <- 42.440740
+modPM_met_nz$long <- -70.969658
+
+polarMap(modPM_met_nz,pollutant = "pm1",statistic = "weighted.mean",x = "ws",latitude = "lat",longitude = "long", provider    = "OpenStreetMap",cols = "jet",alpha = 1,key = FALSE,iconWidth = 200,iconHeight = 200,fig.width = 4,fig.height = 4)
+
+polarMap(modPM_met_nz,pollutant = "pm25",statistic = "weighted.mean",x = "ws",latitude = "lat",longitude = "long", provider    = "OpenStreetMap",cols = "jet",alpha = 1,key = FALSE,iconWidth = 200,iconHeight = 200,fig.width = 4,fig.height = 4)
+
+polarMap(modPM_met_nz,pollutant = "pm10",statistic = "weighted.mean",x = "ws",latitude = "lat",longitude = "long", provider    = "OpenStreetMap",cols = "jet",alpha = 1,key = FALSE,iconWidth = 200,iconHeight = 200,fig.width = 4,fig.height = 4)
+```
+
+```{r}
+# Polar Clusters
+polarCluster(modPM_met, pollutant = "pm1", n.clusters = 2:10, cols= "Set2", main = paste0("Gibson Park"))
+
+polarCluster(modPM_met, pollutant = "pm25", n.clusters = 2:10, cols= "Set2", main = paste0("Gibson Park"))
+
+polarCluster(modPM_met, pollutant = "pm10", n.clusters = 2:10, cols= "Set2", main = paste0("Gibson Park"))
+```
+
+```{r}
+# Polar Annulus
+polarAnnulus(modPM_met_nz, poll = "pm10", period = "trend", main = "Trend")
+polarAnnulus(modPM_met_nz, poll = "pm10", period = "season", main = "Season")
+polarAnnulus(modPM_met_nz, poll = "pm10", period = "weekday", main = "Weekday")
+polarAnnulus(modPM_met_nz, poll = "pm10",period = "hour", main = "Hour")
+
+```
