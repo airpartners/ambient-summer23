@@ -3,6 +3,9 @@ title: "API Call"
 author: "Cherry Pham"
 date: "2023-06-20"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 This Markdown file is created with the purpose of obtaining sensor data from Quant-AQ through API calls.
@@ -27,8 +30,8 @@ invisible(sapply(packages, library, character.only = TRUE))
 
 # Explicit package function calls
 httr::GET
+httr::content
 jsonlite::fromJSON
-jsonlite::content
 purrr::map_df
 dplyr::as_data_frame
 dplyr::filter
@@ -51,24 +54,24 @@ time_range <- format(time_range, "%Y-%m-%d")
 
 # Define a list of device IDs
 device_ids <- c(
-  "MOD-00024",
-  "MOD-00025",
-  "MOD-00026",
-  "MOD-00027",
-  "MOD-00028",
-  "MOD-PM-00141",
-  "MOD-PM-00211",
-  "MOD-PM-00212",
-  "MOD-PM-00213",
-  "MOD-PM-00214",
-  "MOD-PM-00216",
-  "MOD-PM-00217",
-  "MOD-PM-00221",
-  "MOD-PM-00222",
-  "MOD-PM-00224",
-  "MOD-PM-00226",
-  "MOD-PM-00230",
-  "MOD-PM-00231"
+  "MOD-00024"
+  # "MOD-00025",
+  # "MOD-00026",
+  # "MOD-00027",
+  # "MOD-00028",
+  # "MOD-PM-00141",
+  # "MOD-PM-00211",
+  # "MOD-PM-00212",
+  # "MOD-PM-00213",
+  # "MOD-PM-00214",
+  # "MOD-PM-00216",
+  # "MOD-PM-00217",
+  # "MOD-PM-00221",
+  # "MOD-PM-00222",
+  # "MOD-PM-00224",
+  # "MOD-PM-00226",
+  # "MOD-PM-00230",
+  # "MOD-PM-00231"
 )
 ```
 
@@ -85,16 +88,40 @@ if (!file.exists(data_folder_path)) {
 }
 
 # Function to process a single device ID
-process_device_id <- function(device_id, date) {
+process_device_id <- function(device_id, date, state) {
   # Construct device URL for API call
-  device_url <- paste0(device_id, "/data-by-date/raw/", date, "/")
-  
+  device_url <- paste0(device_id, "/data-by-date/",state,"/", date, "/")
+
   # Send GET request
   raw_data <- GET(
     url = paste0(base_url, device_url),
     authenticate(api_key, "", type = "basic"),
     encoding = "UTF-8"
   )
+  
+  # Check the HTTP status code of the response
+  if (status_code(raw_data) != 200) {
+    # Skip processing if the response is not successful (status code other than 200)
+    return()
+  }
+  
+  # Check the content type of the response
+  content_type <- httr::headers(raw_data)$`content-type`
+  if (!grepl("application/json", content_type, ignore.case = TRUE)) {
+    # Handle the error
+    error_msg <-
+      paste0("Error: Unexpected content type for", device_id, "on", date)
+    # Store the raw response or handle it as needed
+    raw_response <-
+      content(raw_data, as = "text", encoding = "UTF-8")
+    # ... Perform necessary actions with the raw response ...
+    
+    # Example: Write the error message and raw response to a log file
+    log_entry <- paste0(error_msg, "\n", raw_response, "\n\n")
+    write(log_entry, file = "error_log.txt", append = TRUE)
+    
+    return()
+  }
   
   data <- content(raw_data, as = "text", encoding = "UTF-8")
   parsed_data <- fromJSON(data)
@@ -112,14 +139,13 @@ process_device_id <- function(device_id, date) {
   device_folder_path <- file.path(data_folder_path, device_id)
   
   # Save data to CSV file named after the device ID only if the data is not empty
-  
   if (!dir.exists(device_folder_path)) {
     dir.create(device_folder_path, recursive = TRUE)
   }
-  
+
   # Save data to CSV file
   csv_file_path <-
-    file.path(device_folder_path, paste0(device_id, "-", date, ".csv"))
+    file.path(device_folder_path, paste0(device_id, "-", date, "-", state, ".csv"))
   
   # Try writing the CSV file and handle errors
   tryCatch({
@@ -140,7 +166,9 @@ process_device_id <- function(device_id, date) {
 # Process each device ID over time range
 for (device_id in device_ids) {
   for (date in time_range) {
-    process_device_id(device_id, date)
+    for (state in c("raw", "final")) {
+      process_device_id(device_id, date, state)
+    }
   }
 }
 ```
