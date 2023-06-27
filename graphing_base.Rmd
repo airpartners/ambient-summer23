@@ -28,7 +28,7 @@ packages <- c(
 )
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
-# Load required packages
+# Load required packages for data manipulation and analysis
 invisible(sapply(packages, library, character.only = TRUE))
 
 # Set options
