@@ -48,8 +48,5 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Data folder
-data/
-
 # Error log
 error_log.txt
