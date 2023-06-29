@@ -29,7 +29,7 @@ documented though so good luck]
 
 ```{r}
 # Check and install required packages if necessary
-packages <- c("httr", "jsonlite", "purrr", "dplyr")
+packages <- c("httr", "jsonlite", "purrr", "dplyr", "tidyverse", "tidyr")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages
@@ -56,7 +56,7 @@ api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
 
 # Define a time range to loop over until I find a better way
 time_range <-
-  seq(as.Date("2022-07-19"), as.Date("2022-09-30"), by = "day")
+  seq(as.Date("2022-07-19"), as.Date("2022-07-20"), by = "day")
 time_range <- format(time_range, "%Y-%m-%d")
 
 # Define a list of device IDs
@@ -86,7 +86,7 @@ device_ids <- c(
 
 ```{r}
 # Create folder if not initiated
-data_folder_path <- "./data/Quant-AQ/MOD-PM"
+data_folder_path <- "./data/Quant-AQ/MOD-PM/"
 
 # Check if the folder exists
 if (!file.exists(data_folder_path)) {
@@ -96,84 +96,105 @@ if (!file.exists(data_folder_path)) {
 
 # Function to process a single device ID
 process_device_id <- function(device_id, date, state) {
-  # Construct device URL for API call
-  device_url <- paste0(device_id, "/data-by-date/",state, date, "/")
-
-  # Send GET request
-  raw_data <- GET(
-    url = paste0(base_url, device_url),
-    authenticate(api_key, "", type = "basic"),
-    encoding = "UTF-8"
-  )
-  
-  # Option 1: Un-comment this if you want to just ignore the faulty API responses
-  # Check the HTTP status code of the response
-  if (status_code(raw_data) != 200) {
-    # Skip processing if the response is not successful (not 200)
+  for (date in time_range) {
+    # Initialize data frames
+    raw_df <- data.frame()
+    final_df <- data.frame()
+    merged_data_per_sensor <- data.frame()
+    for (state in c("raw/", "")) {
+      
+      # Construct device URL for API call
+      device_url <-
+        paste0(device_id, "/data-by-date/", state, date, "/")
+      
+      # Send GET request
+      raw_data <- GET(
+        url = paste0(base_url, device_url),
+        authenticate(api_key, "", type = "basic"),
+        encoding = "UTF-8"
+      )
+      
+      # Option 1: Simply ignore the faulty API responses
+      # Option 2 in commit <1af8a62915811ba44d4f7e4b2cc6eab7c97240c1> gives u
+      # detailed errors
+      if (status_code(raw_data) != 200) {
+        return()
+      }
+      
+      data <- content(raw_data, as = "text", encoding = "UTF-8")
+      parsed_data <- fromJSON(data)
+      
+      # Check if the data is empty or has zero rows
+      if (is.null(parsed_data) ||
+          is.null(parsed_data$data) ||
+          length(parsed_data$data) == 0) {
+        # Skip processing if the data is empty
+        next
+      }
+      
+      # Save raw and final data accordingly
+      if (state == "raw/") {
+        raw_df <- as.data.frame(parsed_data$data)
+      } else {
+        final_df <- as.data.frame(parsed_data$data)
+      }
+    }
+    
+    # Skip processing if the merged data is empty or has zero rows
+    if (is.null(raw_df) ||
+        is.null(final_df) ||
+        nrow(raw_df) == 0 || nrow(final_df) == 0) {
+      return()
+    }
+    # Merge raw and final data
+    merged_data_per_day <-
+      merge(raw_df, final_df, by = "timestamp_local")
+  }
+  # Skip processing if the merged data is empty or has zero rows
+  if (is.null(merged_data_per_day) ||
+      nrow(merged_data_per_day) == 0) {
     return()
   }
-
-  # # Option 2: Un-comment this if you want to see the faulty API responses in error_log.txt
-  # # Check the content type of the response
-  # content_type <- httr::headers(raw_data)$`content-type`
-  # if (!grepl("application/json", content_type, ignore.case = TRUE)) {
-  #   # Handle the error
-  #   error_msg <-
-  #     paste0("Error: Unexpected content type for", device_id, "on", date)
-  #   # Store the raw response or handle it as needed
-  #   raw_response <-
-  #     content(raw_data, as = "text", encoding = "UTF-8")
-  #   
-  #   # Write the error message and raw response to a log file
-  #   log_entry <- paste0(error_msg, "\n", raw_response, "\n\n")
-  #   write(log_entry, file = "error_log.txt", append = TRUE)
-  #   
-  #   return()
-  # }
   
-  data <- content(raw_data, as = "text", encoding = "UTF-8")
-  parsed_data <- fromJSON(data)
+    # Initialize flag to track nested status
+    is_nested <- TRUE
+    
+    # Flatten any nested dataframes
+    while (is_nested) {
+      # Check if the data frame is nested
+      is_nested <-
+        any(sapply(merged_data_per_day, function(x)
+          is.list(x) || is.data.frame(x)))
+      
+      if (is_nested) {
+        # Flatten any nested data frames
+        cols_to_unnest <-
+          names(merged_data_per_day)[sapply(merged_data_per_day, is.data.frame)]
+        # Unnest with duplicate handling strategy
+        merged_data_per_day <-
+          unnest_wider(merged_data_per_day, cols_to_unnest, names_repair = "unique")
+      }
+      else {break}
+    }
   
-  # Check if the data is empty or has zero rows
-  if (is.null(parsed_data) ||
-      is.null(parsed_data$data) || length(parsed_data$data) == 0) {
-    # Skip processing if the data is empty
-    return()
-  }
-  
-  # Extract relevant data
-  df <- as.data.frame(parsed_data$data)
-  
-  # Define device folder path
-  device_folder_path <- file.path(data_folder_path, device_id)
-  
+  merged_data_per_sensor <- rbind(merged_data_per_sensor, merged_data_per_day)
   # Check if the device folder exists
-  if (!dir.exists(device_folder_path)) {
+  if (!dir.exists(data_folder_path)) {
     # Create the device folder if it doesn't exist
-    dir.create(device_folder_path, recursive = TRUE)
+    dir.create(data_folder_path, recursive = TRUE)
   }
-  
+
   # Save data to CSV file
-  if (state == "raw/") {
-    csv_file_path <-
-      file.path(device_folder_path, paste0(device_id, "-", date, "-raw.csv"))
-  }
-  else {
-    csv_file_path <-
-      file.path(device_folder_path,
-                paste0(device_id, "-", date, "-final.csv"))
-  }
-  
+  csv_file_path <-
+    file.path(data_folder_path, paste0(device_id, ".csv"))
+
   # Try writing the CSV file and handle errors
   tryCatch({
-    write.csv(df, 
-              file = csv_file_path,
-              row.names = FALSE,
-              fileEncoding = "UTF-8")
+    write.csv(merged_data_per_day, file = csv_file_path)
   },
   error = function(e) {
     cat(
-      paste0("Error writing CSV file for", device_id, "on", date, "\n"),
+      paste0("Error writing CSV file for ", device_id, "\n"),
       file = "error_log.txt",
       append = TRUE
     )
@@ -182,39 +203,6 @@ process_device_id <- function(device_id, date, state) {
 
 # Process each device ID over time range
 for (device_id in device_ids) {
-  for (date in time_range) {
-    for (state in c("raw/", "")) {
       process_device_id(device_id, date, state)
-    }
-  }
-  # Delete the device folder if it is empty
-  device_folder_path <- file.path(data_folder_path, device_id)
-  if (dir.exists(device_folder_path) &&
-      length(list.files(device_folder_path)) == 0) {
-    unlink(device_folder_path, recursive = TRUE)
-  }
 }
-```
-
-## VISUALIZING RESULTS
-
-```{r}
-# Read CSV file
-data_file_path <- "./data/Quant-AQ/MOD-PM/MOD-00024/"
-device_SN <- "MOD-00024-a0476092e0f6406f887081af7b1a51c0"
-file_path <- paste0(data_file_path, device_SN, ".csv")
-str(file_path)
-data <- read.csv(file_path)
-
-# Glimpse the data
-print(names(data))
-
-data_file_path <- "./data/Quant-AQ/MOD-PM//MOD-00024/"
-device_SN <- "MOD-00024-2022-07-19-final"
-file_path <- paste0(data_file_path, device_SN, ".csv")
-str(file_path)
-data2 <- read.csv(file_path)
-
-# Glimpse the data
-print(names(data2))
 ```
