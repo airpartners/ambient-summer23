@@ -19,17 +19,46 @@ wish to modify the data to be retrieved, please read the data guide
 below.
 
 ## DATA GUIDE
+You can find a premade dataset created using this API call document in 
+[this branch](https://github.com/airpartners/ambient-summer23/tree/datafolder)
+of the [ambient repository](https://github.com/airpartners/ambient-summer23)
+Brief explanation of the code:
 
-[write instructions here]
+A. **PACKAGES AND INITIAL SETTINGS**
 
-[sorry if i forgot to do this at the end, the code below is quite well
-documented though so good luck]
+B. **DEFINE VARIABLES**
+
+-   You can find sensor information, API key and API url here.
+
+C. **RETTRIEVING DATA INTO FOLDERS**
+
+1.  Check if the data folder exists and creates it if it doesn't.
+
+2.  `process_device_id` function:
+    
+    a.  Loop over the date range and makes API calls for each date.
+
+    b.  The API response is checked for errors and processed
+        accordingly.
+
+    c.  After processing all the dates for a sensor, merge the raw and
+        final data based on the "timestamp_local" column.
+
+    d.  Flatten merged data by unnesting any nested data frames within
+        it.
+    
+    f.  Attempt to write the flattened data to a CSV file using the
+        generated file path. If an error occurs during the writing
+        process, append an error message to the "error_log.txt" file.
+
+3.  Loop over each sensor deployment in the list `device_ids` to apply
+    `process_device_id` to every device.
 
 ## PACKAGES AND INITIAL SETTINGS
 
 ```{r}
 # Check and install required packages if necessary
-packages <- c("httr", "jsonlite", "purrr", "dplyr", "tidyverse", "tidyr")
+packages <- c("httr", "jsonlite", "purrr", "dplyr", "tidyr")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages
@@ -102,7 +131,6 @@ process_device_id <- function(device_id, date, state) {
     final_df <- data.frame()
     merged_data_per_sensor <- data.frame()
     for (state in c("raw/", "")) {
-      
       # Construct device URL for API call
       device_url <-
         paste0(device_id, "/data-by-date/", state, date, "/")
@@ -156,38 +184,41 @@ process_device_id <- function(device_id, date, state) {
     return()
   }
   
-    # Initialize flag to track nested status
-    is_nested <- TRUE
-    
-    # Flatten any nested dataframes
-    while (is_nested) {
-      # Check if the data frame is nested
-      is_nested <-
-        any(sapply(merged_data_per_day, function(x)
-          is.list(x) || is.data.frame(x)))
-      
-      if (is_nested) {
-        # Flatten any nested data frames
-        cols_to_unnest <-
-          names(merged_data_per_day)[sapply(merged_data_per_day, is.data.frame)]
-        # Unnest with duplicate handling strategy
-        merged_data_per_day <-
-          unnest_wider(merged_data_per_day, cols_to_unnest, names_repair = "unique")
-      }
-      else {break}
-    }
+  # Initialize flag to track nested status
+  is_nested <- TRUE
   
-  merged_data_per_sensor <- rbind(merged_data_per_sensor, merged_data_per_day)
+  # Flatten any nested dataframes
+  while (is_nested) {
+    # Check if the data frame is nested
+    is_nested <-
+      any(sapply(merged_data_per_day, function(x)
+        is.list(x) || is.data.frame(x)))
+    
+    if (is_nested) {
+      # Flatten any nested data frames
+      cols_to_unnest <-
+        names(merged_data_per_day)[sapply(merged_data_per_day, is.data.frame)]
+      # Unnest with duplicate handling strategy
+      merged_data_per_day <-
+        unnest_wider(merged_data_per_day, cols_to_unnest, names_repair = "unique")
+    }
+    else {
+      break
+    }
+  }
+  
+  merged_data_per_sensor <-
+    rbind(merged_data_per_sensor, merged_data_per_day)
   # Check if the device folder exists
   if (!dir.exists(data_folder_path)) {
     # Create the device folder if it doesn't exist
     dir.create(data_folder_path, recursive = TRUE)
   }
-
+  
   # Save data to CSV file
   csv_file_path <-
     file.path(data_folder_path, paste0(device_id, ".csv"))
-
+  
   # Try writing the CSV file and handle errors
   tryCatch({
     write.csv(merged_data_per_day, file = csv_file_path)
@@ -203,6 +234,6 @@ process_device_id <- function(device_id, date, state) {
 
 # Process each device ID over time range
 for (device_id in device_ids) {
-      process_device_id(device_id, date, state)
+  process_device_id(device_id, date, state)
 }
 ```
