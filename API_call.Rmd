@@ -19,37 +19,44 @@ wish to modify the data to be retrieved, please read the data guide
 below.
 
 ## DATA GUIDE
-You can find a premade dataset created using this API call document in 
-[this branch](https://github.com/airpartners/ambient-summer23/tree/datafolder)
-of the [ambient repository](https://github.com/airpartners/ambient-summer23)
-Brief explanation of the code:
+
+You can find a premade dataset created using this API call document in
+[this
+branch](https://github.com/airpartners/ambient-summer23/tree/datafolder)
+of the [ambient
+repository](https://github.com/airpartners/ambient-summer23). Below is a
+brief explanation of the code for any modification regarding data
+retrieving.
 
 A. **PACKAGES AND INITIAL SETTINGS**
 
 B. **DEFINE VARIABLES**
 
--   You can find sensor information, API key and API url here.
+-   You can find sensors information, data-retrieving time range, API
+    key and API URL here.
 
 C. **RETTRIEVING DATA INTO FOLDERS**
 
-1.  Check if the data folder exists and creates it if it doesn't.
+1.  Check if the appropriate data folders exist and create them if not.
 
 2.  `process_device_id` function:
-    
+
     a.  Loop over the date range and makes API calls for each date.
 
     b.  The API response is checked for errors and processed
         accordingly.
 
     c.  After processing all the dates for a sensor, merge the raw and
-        final data based on the "timestamp_local" column.
+        final data based on the "timestamp_local" column into the data
+        frame `merged_data_per_day`.
 
     d.  Flatten merged data by unnesting any nested data frames within
-        it.
-    
-    f.  Attempt to write the flattened data to a CSV file using the
-        generated file path. If an error occurs during the writing
-        process, append an error message to the "error_log.txt" file.
+        it and append all data across time range for each sensor
+        vertically into the data frame `merged_data_per_sensor`.
+
+    e.  Attempt to write the `merged_data_per_sensor` data frame into a
+        CSV file. If an error occurs during the writing process, append
+        an error message to the "error_log.txt" file.
 
 3.  Loop over each sensor deployment in the list `device_ids` to apply
     `process_device_id` to every device.
@@ -85,7 +92,7 @@ api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
 
 # Define a time range to loop over until I find a better way
 time_range <-
-  seq(as.Date("2022-07-19"), as.Date("2022-07-20"), by = "day")
+  seq(as.Date("2022-07-01"), as.Date("2023-02-30"), by = "day")
 time_range <- format(time_range, "%Y-%m-%d")
 
 # Define a list of device IDs
@@ -125,16 +132,19 @@ if (!file.exists(data_folder_path)) {
 
 # Function to process a single device ID
 process_device_id <- function(device_id, date, state) {
+  # Initialize empty sensor data frame
+  merged_data_per_sensor <- data.frame()
   for (date in time_range) {
-    # Initialize data frames
+    # Print device id and date in console
+    cat(paste0("\n", device_id, ": ", date))
+    # Initialize empty daily data frames
     raw_df <- data.frame()
     final_df <- data.frame()
-    merged_data_per_sensor <- data.frame()
+    merged_data_per_day <- data.frame()
     for (state in c("raw/", "")) {
       # Construct device URL for API call
       device_url <-
         paste0(device_id, "/data-by-date/", state, date, "/")
-      
       # Send GET request
       raw_data <- GET(
         url = paste0(base_url, device_url),
@@ -143,9 +153,10 @@ process_device_id <- function(device_id, date, state) {
       )
       
       # Option 1: Simply ignore the faulty API responses
-      # Option 2 in commit <1af8a62915811ba44d4f7e4b2cc6eab7c97240c1> gives u
-      # detailed errors
+      # Option 2 in commit <1af8a62915811ba44d4f7e4b2cc6eab7c97240c1> gives
+      # you detailed errors
       if (status_code(raw_data) != 200) {
+        cat("\nError API return !200")
         return()
       }
       
@@ -157,6 +168,7 @@ process_device_id <- function(device_id, date, state) {
           is.null(parsed_data$data) ||
           length(parsed_data$data) == 0) {
         # Skip processing if the data is empty
+        cat("\nEmpty data")
         next
       }
       
@@ -169,50 +181,57 @@ process_device_id <- function(device_id, date, state) {
     }
     
     # Skip processing if the merged data is empty or has zero rows
-    if (is.null(raw_df) ||
-        is.null(final_df) ||
-        nrow(raw_df) == 0 || nrow(final_df) == 0) {
-      return()
+    if (is.null(raw_df) || nrow(raw_df) == 0) {
+      merged_data_per_day <- final_df
+      cat("\nEmpty raw data")
+    }
+    else if (is.null(final_df) || nrow(final_df) == 0) {
+      merged_data_per_day <- raw_df
+      cat("\nEmpty final data")
     }
     # Merge raw and final data
-    merged_data_per_day <-
-      merge(raw_df, final_df, by = "timestamp_local")
-  }
-  # Skip processing if the merged data is empty or has zero rows
-  if (is.null(merged_data_per_day) ||
-      nrow(merged_data_per_day) == 0) {
-    return()
-  }
-  
-  # Initialize flag to track nested status
-  is_nested <- TRUE
-  
-  # Flatten any nested dataframes
-  while (is_nested) {
-    # Check if the data frame is nested
-    is_nested <-
-      any(sapply(merged_data_per_day, function(x)
-        is.list(x) || is.data.frame(x)))
-    
-    if (is_nested) {
-      # Flatten any nested data frames
-      cols_to_unnest <-
-        names(merged_data_per_day)[sapply(merged_data_per_day, is.data.frame)]
-      # Unnest with duplicate handling strategy
-      merged_data_per_day <-
-        unnest_wider(merged_data_per_day, cols_to_unnest, names_repair = "unique")
-    }
     else {
-      break
+      merged_data_per_day <-
+        merge(raw_df, final_df, by = "timestamp_local")
     }
-  }
-  
-  merged_data_per_sensor <-
-    rbind(merged_data_per_sensor, merged_data_per_day)
-  # Check if the device folder exists
-  if (!dir.exists(data_folder_path)) {
-    # Create the device folder if it doesn't exist
-    dir.create(data_folder_path, recursive = TRUE)
+    cat(" -- DONE PER DAY")
+    
+    # Skip processing if the merged data is empty or has zero rows
+    if (is.null(merged_data_per_day) ||
+        nrow(merged_data_per_day) == 0) {
+      cat("(empty day data)")
+      next
+    }
+    
+    # Initialize flag to track nested status
+    is_nested <- TRUE
+    
+    # Flatten any nested dataframes
+    while (is_nested) {
+      # Check if the data frame is nested
+      is_nested <-
+        any(sapply(merged_data_per_day, function(x)
+          is.list(x) || is.data.frame(x)))
+      # Flatten any nested data frames
+      if (is_nested) {
+        cols_to_unnest <-
+          names(merged_data_per_day)[sapply(merged_data_per_day, is.data.frame)]
+        # Unnest with duplicate handling strategy
+        merged_data_per_day <-
+          unnest_wider(
+            merged_data_per_day,
+            cols_to_unnest,
+            names_repair = "unique",
+            names_sep = ""
+          )
+      }
+      else {
+        break
+      }
+    }
+    # Merge data per day to bigger df
+    merged_data_per_sensor <-
+      rbind(merged_data_per_sensor, merged_data_per_day)
   }
   
   # Save data to CSV file
@@ -221,7 +240,7 @@ process_device_id <- function(device_id, date, state) {
   
   # Try writing the CSV file and handle errors
   tryCatch({
-    write.csv(merged_data_per_day, file = csv_file_path)
+    write.csv(merged_data_per_sensor, file = csv_file_path)
   },
   error = function(e) {
     cat(
@@ -230,6 +249,7 @@ process_device_id <- function(device_id, date, state) {
       append = TRUE
     )
   })
+  cat(paste0("\n-- DONE PER SENSOR ", device_id, " --"))
 }
 
 # Process each device ID over time range
