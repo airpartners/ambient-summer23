@@ -1,0 +1,384 @@
+---
+title: "data_viz"
+author: "Cherry Pham"
+date: "2023-07-06"
+output: html_document
+---
+
+## INITAL SETTINGS
+
+```{r}
+# Check and install required packages if necessary
+packages <- c(
+  "lubridate",   # Package for working with dates and times
+  "data.table",  # Package for efficient data manipulation and processing
+  "dplyr",       # Package for data manipulation and transformation
+  "openair",     # Package for analyzing air pollution data
+  "openairmaps", # Package for accessing open air pollution data
+  "stringr",     # Package for string manipulation
+  "baseline",    # Package for baseline modeling and adjustment
+  "purrr",       # Package for functional programming
+  "tidyverse",   # Meta-package for data science
+  "maps"         # Package for creating maps
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## FETCHING DATA TO IMPORT
+
+To skip this session, go to the data folder branch of [this repository](https://github.com/airpartners/ambient-summer23/tree/datafolder) to download a pre-made data folder. If you want to modify data/download data for yourself, refer to the below instructions within this session.
+
+### Quant-AQ Data
+
+Refer to the Markdown file API_call.Rmd in this folder. The data should be in ./data/Quant-AQ/MOD-PM/ if nothing goes wrong.
+
+### Meteorology Data
+
+The meteorology data used in some analysis below are taken from the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
+
+Below are the downloading instructions taken from the [EB Gibson Park Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
+
+Select the following station: \* [BOS] BOSTON/LOGAN INTL
+
+Select the following variables:
+
+-   Temperature (C)
+
+-   Wind Direction
+
+-   Wind Speed [mph]
+
+Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not inclusive of the last date)
+
+Select this timezone: `America/New_York`
+
+Use the following download options: `comma delimited` ,
+
+`no latitude/longitude vectors` ,
+
+`no elevation` ,
+
+`represent missing data with blank string` ,
+
+`denote trace with blank string`
+
+## IMPORT DATA AND PRE-PROCESSING
+
+### Quant-AQ Data
+
+```{r}
+# Read in csv files from data folder
+modPM <- suppressMessages({
+  list.files(path = "./data/Quant-AQ/MOD-PM",
+             pattern = "*.csv", 
+             full.names = TRUE) %>%
+    purrr::map_dfr(read.csv)
+})
+
+# Add a formatted date collumn
+modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
+
+# Clean up Quant-AQ data
+modPM <- modPM %>%
+  setnames(old = c(
+    "timestamp.x",
+    "sn.x",
+    "opc.bin0",
+    "opc.bin1",
+    "opc.bin2",
+    "opc.bin3",
+    "opc.bin4",
+    "opc.bin5",
+    "opc.bin6",
+    "opc.bin7",
+    "opc.bin8",
+    "opc.bin9",
+    "opc.bin10",
+    "opc.bin11",
+    "opc.bin12",
+    "opc.bin13",
+    "opc.bin14",
+    "opc.bin15",
+    "opc.bin16",
+    "opc.bin17",
+    "opc.bin18",
+    "opc.bin19",
+    "opc.bin20",
+    "opc.bin21",
+    "opc.bin22",
+    "opc.bin23",
+    "opc.pm1",
+    "opc.pm25",
+    "opc.pm10",
+    "neph.pm1",
+    "neph.pm25",
+    "neph.pm10",
+    "neph.cscat",
+    "gases.co.we",
+    "gases.co.ae",
+    "gases.co.diff",
+    "gases.no.we",
+    "gases.no.ae",
+    "gases.no.diff",
+    "gases.no2.we",
+    "gases.no2.ae",
+    "gases.no2.diff",
+    "gases.o3.we",
+    "gases.o3.ae",
+    "gases.o3.diff",
+    "modelpmpm1",
+    "modelpmpm25",
+    "modelpmpm10"
+  ),
+  new = c(
+    "timestamp",
+    "sn",
+    "bin0",
+    "bin1",
+    "bin2",
+    "bin3",
+    "bin4",
+    "bin5",
+    "bin6",
+    "bin7",
+    "bin8",
+    "bin9",
+    "bin10",
+    "bin11",
+    "bin12",
+    "bin13",
+    "bin14",
+    "bin15",
+    "bin16",
+    "bin17",
+    "bin18",
+    "bin19",
+    "bin20",
+    "bin21",
+    "bin22",
+    "bin23",
+    "opcn3_pm1",
+    "opcn3_pm25",
+    "opcn3_pm10",
+    "pm1_env",
+    "pm25_env",
+    "pm10_env",
+    "neph_csat",
+    "co_we",
+    "co_ae",
+    "co_diff",
+    "no_we",
+    "no_ae",
+    "no_diff",
+    "no2_we",
+    "no2_ae",
+    "no2_diff",
+    "o3_we",
+    "o3_ae",
+    "ox_diff",
+    "pm1_model_id",
+    "pm25_model_id",
+    "pm10_model_id"
+  ))
+
+# Delete unncessary columns
+modPM <- subset(modPM, select = -c(url.x, url.y, sn.y, timestamp.y, geo.lat, geo.lon, met.rh, met.temp, met.wd, met.ws, geolat, geolon, metrh, mettemp))
+
+print(modPM)
+```
+
+### Meteorology Data
+
+```{r}
+metdata <- fread("data/metdata.csv", header=TRUE, data.table = TRUE) #import meteorology file
+metdata$date <- as.POSIXct(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York") #setting datetime, using correct timezone on East Coast Local time
+print(metdata)
+metdata <- metdata %>%
+  # if only wind speed and wind direction matter
+  setnames(old = c("drct", "sped", "valid"), new = c("wd", "ws", "original_met_time")) %>% #rename
+  na.omit("date") %>% #if any dates are NA, the following function won't work
+  complete(date = seq(from = min(date), to= max(date),  by = "1 min")) %>%#make 1 minute intervals
+  fill(c("wd", "ws", "tmpc")) #fill those new 1 minute interval rows
+
+metdata$ws <- metdata$ws * (1609/3600) #converting to m/s, 1609 meters per mile, 3600 seconds per hr
+metdata[,c("station")] <- list(NULL) #getting rid of unnecessary variables
+metdata <- unique(metdata) #remove duplicates
+
+print(metdata)
+```
+
+### Merging Data-sets
+
+```{r}
+# Time sync and merge met and pollution data
+modPM$modPM_date_1min <- lubridate::round_date(modPM$date, unit = "minute")
+metdata$met_date_1min <- lubridate::round_date(metdata$date, unit = "minute")
+
+# Merge the two datasets
+modPM_met <- dplyr::left_join(modPM, metdata, by = c("modPM_date_1min" = "met_date_1min"))
+# ARISense_met$date <- ARISense_met$date.x
+modPM_met$date <- modPM_met$date.x
+```
+
+### Sanity Checks
+
+```{r}
+print(modPM_met)
+
+openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+```
+
+## GRAPHING
+
+### Graph 1
+
+Create a time series plot in r comparing bus/train arrival times to pollutant concentration, filtered for wind speed and/or direction
+
+```{r}
+# Merge the datasets based on the timestamp column
+merged_data <- merge(arrival_times, pollutant_data, by = "timestamp", all = TRUE)
+
+# Filter the merged data based on wind speed and/or direction
+filtered_data <- merged_data %>%
+  filter(wind_speed > threshold_value)
+
+# Time series comparing bus/train arrival times to pollutant concentration
+ggplot(filtered_data, aes(x = timestamp)) +
+  geom_line(aes(y = arrival_times, color = "Arrival Times")) +
+  geom_line(aes(y = pollutant_concentration, color = "Pollutant Concentration")) +
+  labs(x = "Timestamp", y = "Values") +
+  scale_color_manual(values = c("Arrival Times" = "blue", "Pollutant Concentration" = "red")) +
+  theme_minimal()
+```
+
+### Graph 2
+
+Create bar graphs with each bar representing the pollutants from a single sensor (stacking 3 colors: pink for PM1, yellow for PM2.5, blue for PM10)
+
+```{r}
+# Sample data (replace with your actual data)
+sensor_data <- data.frame(
+  Sensor = c("Sensor A", "Sensor B", "Sensor C"),
+  PM1 = c(10, 15, 8),
+  PM2.5 = c(20, 12, 18),
+  PM10 = c(30, 25, 22)
+)
+
+# Reshape the data into long format
+sensor_data_long <- tidyr::gather(sensor_data, Pollutant, Value, -Sensor)
+
+# Define colors for each pollutant
+colors <- c("PM1" = "pink", "PM2.5" = "yellow", "PM10" = "blue")
+
+# Create the bar graph
+ggplot(sensor_data_long, aes(x = Sensor, y = Value, fill = Pollutant)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = colors) +
+  labs(x = "Sensor", y = "Pollutant Value") +
+  ggtitle("Pollutant Levels by Sensor") +
+  theme_minimal()
+```
+
+### Graph 3
+
+Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
+
+```{r}
+# Sample data (replace with your actual data)
+sensor_data <- data.frame(
+  Month = c("Jan", "Feb", "Mar", "Apr", "May", "Jun"),
+  SensorA_Good = c(10, 12, 8, 15, 9, 11),
+  SensorA_Medium = c(5, 7, 6, 9, 4, 3),
+  SensorA_Bad = c(2, 3, 4, 1, 2, 5),
+  SensorB_Good = c(8, 6, 9, 11, 7, 10),
+  SensorB_Medium = c(4, 3, 2, 5, 6, 3),
+  SensorB_Bad = c(3, 2, 1, 4, 3, 2)
+)
+
+# Reshape the data into long format
+sensor_data_long <- tidyr::gather(sensor_data, Sensor_Quality, Value, -Month)
+
+# Define colors for each quality level
+colors <- c("Good" = "green", "Medium" = "orange", "Bad" = "red")
+
+# Create the bar graph
+ggplot(sensor_data_long, aes(x = Month, y = Value, fill = Sensor_Quality)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = colors) +
+  labs(x = "Month", y = "Number of Days") +
+  ggtitle("Air Quality by Month and Sensor") +
+  theme_minimal()
+```
+
+### Graph 4
+
+Create a map with the average polar plots w/ of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+
+```{r}
+# Sample data (replace with your actual data)
+pollution_data <- data.frame(
+  Longitude = c(-74.0060, -73.9352, -73.9919, -73.9962, -73.9812),
+  Latitude = c(40.7128, 40.7309, 40.7589, 40.7488, 40.7549),
+  PM1 = c(5.2, 6.3, 4.8, 5.9, 6.1),
+  PM2.5 = c(10.1, 12.5, 9.8, 11.2, 12.4),
+  PM10 = c(15.6, 18.9, 14.2, 16.8, 17.9),
+  DateTime = as.POSIXct(c("2023-01-01 12:00:00", "2023-01-01 12:00:00", "2023-01-01 12:00:00",
+                          "2023-01-01 12:00:00", "2023-01-01 12:00:00"))
+)
+
+# Create the average polar plots
+avg_polar_plots <- polarPlot(pollution_data, pollutant = c("PM1", "PM2.5", "PM10"), 
+                             type = "average", res = 1, start = "all",
+                             polar = TRUE, ci = FALSE, nsector = 12)
+
+# Plot the polar plots on a map
+plot(avg_polar_plots, map = TRUE)
+```
+
+### Graph 5
+
+Create a map of for the average of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+
+```{r}
+# Sample data (replace with your actual data)
+pollution_data <- data.frame(
+  Longitude = c(-74.0060, -73.9352, -73.9919, -73.9962, -73.9812),
+  Latitude = c(40.7128, 40.7309, 40.7589, 40.7488, 40.7549),
+  PM1 = c(5.2, 6.3, 4.8, 5.9, 6.1),
+  PM2.5 = c(10.1, 12.5, 9.8, 11.2, 12.4),
+  PM10 = c(15.6, 18.9, 14.2, 16.8, 17.9),
+  Date = as.Date(c("2023-01-01", "2023-01-01", "2023-01-01", "2023-01-01", "2023-01-01"))
+)
+
+# Define the map boundaries
+map_limits <- map("world", "USA", xlim = c(-125, -66), ylim = c(24, 50), plot = FALSE)
+
+# Function to plot the map with average pollution values
+plot_pollution_map <- function(data, period) {
+  # Aggregate data by period
+  aggregated_data <- aggregate(. ~ Longitude + Latitude, data = data, FUN = mean)
+  
+  # Create the map plot
+  ggplot() +
+    geom_polygon(data = map_limits, aes(x = long, y = lat, group = group), fill = "lightgray", color = "black") +
+    geom_point(data = aggregated_data, aes(x = Longitude, y = Latitude, color = PM1), size = 3) +
+    scale_color_gradient(low = "green", high = "red", name = "PM1") +
+    labs(title = paste("Average PM1", period)) +
+    theme_minimal()
+}
+
+# Plot the maps for different periods
+plot_all_time <- plot_pollution_map(pollution_data, "All Time")
+plot_monthly <- plot_pollution_map(pollution_data, "Monthly")
+plot_daily <- plot_pollution_map(pollution_data, "Daily")
+plot_hourly <- plot_pollution_map(pollution_data, "Hourly")
+```
