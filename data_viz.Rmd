@@ -5,6 +5,8 @@ date: "2023-07-06"
 output: html_document
 ---
 
+[Markdown file docstrings]
+
 ## INITAL SETTINGS
 
 ```{r}
@@ -83,10 +85,8 @@ modPM <- suppressMessages({
              full.names = TRUE) %>%
     purrr::map_dfr(read.csv)
 })
-
-# Add a formatted date collumn
-modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
-
+```
+```{r}
 # Clean up Quant-AQ data
 modPM <- modPM %>%
   setnames(old = c(
@@ -190,8 +190,12 @@ modPM <- modPM %>%
     "pm10_model_id"
   ))
 
-# Delete unncessary columns
-modPM <- subset(modPM, select = -c(url.x, url.y, sn.y, timestamp.y, geo.lat, geo.lon, met.rh, met.temp, met.wd, met.ws, geolat, geolon, metrh, mettemp))
+# Combine pm1 bins
+modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
+# Add a formatted date column
+modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
+# Delete unnecessary columns
+modPM <- subset(modPM, select = -c(url.x, url.y, sn.y, timestamp.y, geo.lat, geo.lon, met.rh, met.temp, met.wd, met.ws, geolat, geolon, metrh, mettemp, bin0, bin1, bin2))
 
 print(modPM)
 ```
@@ -381,4 +385,93 @@ plot_all_time <- plot_pollution_map(pollution_data, "All Time")
 plot_monthly <- plot_pollution_map(pollution_data, "Monthly")
 plot_daily <- plot_pollution_map(pollution_data, "Daily")
 plot_hourly <- plot_pollution_map(pollution_data, "Hourly")
+```
+
+### Plots using OpenAir
+
+```{r}
+# TimePlots
+class(date)
+timePlot(modPM_met, pollutant = c("pm1", "pm25", "pm10"))
+timePlot(modPM_met, pollutant = c("wd", "ws"))
+```
+
+```{r}
+# Diurnals
+timeVariation(modPM_met, pollutant = c("pm1", "pm25", "pm10"), local.tz= "America/New_York") 
+
+```
+
+```{r}
+# Remove zero wind speeds
+modPM_met_nz <- modPM_met
+modPM_met_nz$ws[modPM_met_nz$ws==0]<-NA
+
+```
+
+```{r}
+# Polar Plots - IQR
+  polarPlot(modPM_met_nz, pollutant = "pm1", limits = c(0,15), main = paste0("Roxbury ", "PM1 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm25", limits = c(0,20), main = paste0("Roxbury ", "PM2.5 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm10", limits = c(0,30),  main = paste0("Roxbury ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+# Polar Plots as weighted mean
+  polarPlot(modPM_met_nz, pollutant = "pm1", statistic = "weighted.mean", normalise = TRUE,main = paste0("Roxbury ", "PM1 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm25",statistic = "weighted.mean", normalise = TRUE, main = paste0("Roxbury ", "PM2.5 Polar Plot", sep= " "))
+  polarPlot(modPM_met_nz, pollutant = "pm10",statistic = "weighted.mean", normalise = TRUE, main = paste0("Roxbury ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+  polarFreq(modPM_met_nz, pollutant = "pm1",  statistic = "weighted.mean", main = paste0("Roxbury ", "PM1 Polar Plot", sep= " "))
+  polarFreq(modPM_met_nz, pollutant = "pm25", statistic = "weighted.mean",  main = paste0("Roxbury ", "PM2.5 Polar Plot", sep= " "))
+  polarFreq(modPM_met_nz, pollutant = "pm10", statistic = "weighted.mean",  main = paste0("Roxbury ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+polarFreq(modPM_met_nz, pollutant = "pm1", ws.int = 30, statistic = "weighted.mean", offset = 80, trans = FALSE, col = "heat", main = paste0("Roxbury ", "PM1 Polar Plot", sep= " "))
+polarFreq(modPM_met_nz, pollutant = "pm25", ws.int = 30, statistic = "weighted.mean", offset = 80, trans = FALSE, col = "heat", main = paste0("Roxbury ", "PM2.5 Polar Plot", sep= " "))
+polarFreq(modPM_met_nz, pollutant = "pm10", ws.int = 30, statistic = "weighted.mean", offset = 80, trans = FALSE, col = "heat", main = paste0("Roxbury ", "PM10 Polar Plot", sep= " "))
+```
+
+```{r}
+polarFreq(modPM_met_nz, pollutant = "pm1", ws.int = 30, statistic = "frequency", offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm25", ws.int = 30, statistic = "frequency", offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm10", ws.int = 30, statistic = "frequency", offset = 80, trans = FALSE, col = "heat")
+```
+
+```{r}
+polarFreq(modPM_met_nz, pollutant = "pm1", ws.int = 30,  offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm25", ws.int = 30,  offset = 80, trans = FALSE, col = "heat")
+polarFreq(modPM_met_nz, pollutant = "pm10", ws.int = 30,  offset = 80, trans = FALSE, col = "heat")
+```
+
+```{r}
+modPM_met_nz$lat <- 42.440740
+modPM_met_nz$long <- -70.969658
+
+polarMap(modPM_met_nz,pollutant = "pm1",statistic = "weighted.mean",x = "ws",latitude = "lat",longitude = "long", provider    = "OpenStreetMap",cols = "jet",alpha = 1,key = FALSE,iconWidth = 200,iconHeight = 200,fig.width = 4,fig.height = 4)
+
+polarMap(modPM_met_nz,pollutant = "pm25",statistic = "weighted.mean",x = "ws",latitude = "lat",longitude = "long", provider    = "OpenStreetMap",cols = "jet",alpha = 1,key = FALSE,iconWidth = 200,iconHeight = 200,fig.width = 4,fig.height = 4)
+
+polarMap(modPM_met_nz,pollutant = "pm10",statistic = "weighted.mean",x = "ws",latitude = "lat",longitude = "long", provider    = "OpenStreetMap",cols = "jet",alpha = 1,key = FALSE,iconWidth = 200,iconHeight = 200,fig.width = 4,fig.height = 4)
+```
+
+```{r}
+# Polar Clusters
+polarCluster(modPM_met, pollutant = "pm1", n.clusters = 2:10, cols= "Set2", main = paste0("Roxbury"))
+
+polarCluster(modPM_met, pollutant = "pm25", n.clusters = 2:10, cols= "Set2", main = paste0("Roxbury"))
+
+polarCluster(modPM_met, pollutant = "pm10", n.clusters = 2:10, cols= "Set2", main = paste0("Roxbury"))
+```
+
+```{r}
+# Polar Annulus
+polarAnnulus(modPM_met_nz, poll = "pm10", period = "trend", main = "Trend")
+polarAnnulus(modPM_met_nz, poll = "pm10", period = "season", main = "Season")
+polarAnnulus(modPM_met_nz, poll = "pm10", period = "weekday", main = "Weekday")
+polarAnnulus(modPM_met_nz, poll = "pm10",period = "hour", main = "Hour")
+
 ```

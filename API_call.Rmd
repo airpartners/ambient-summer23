@@ -92,7 +92,7 @@ api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
 
 # Define a time range to loop over until I find a better way
 time_range <-
-  seq(as.Date("2022-07-01"), as.Date("2023-02-30"), by = "day")
+  seq(as.Date("2022-07-01"), as.Date("2023-02-28"), by = "day")
 time_range <- format(time_range, "%Y-%m-%d")
 
 # Define a list of device IDs
@@ -156,7 +156,7 @@ process_device_id <- function(device_id, date, state) {
       # Option 2 in commit <1af8a62915811ba44d4f7e4b2cc6eab7c97240c1> gives
       # you detailed errors
       if (status_code(raw_data) != 200) {
-        cat("\nError API return !200")
+        cat(" Error API return !200")
         return()
       }
       
@@ -168,7 +168,7 @@ process_device_id <- function(device_id, date, state) {
           is.null(parsed_data$data) ||
           length(parsed_data$data) == 0) {
         # Skip processing if the data is empty
-        cat("\nEmpty data")
+        cat(" Empty data")
         next
       }
       
@@ -183,11 +183,11 @@ process_device_id <- function(device_id, date, state) {
     # Skip processing if the merged data is empty or has zero rows
     if (is.null(raw_df) || nrow(raw_df) == 0) {
       merged_data_per_day <- final_df
-      cat("\nEmpty raw data")
+      cat(" Empty raw data")
     }
     else if (is.null(final_df) || nrow(final_df) == 0) {
       merged_data_per_day <- raw_df
-      cat("\nEmpty final data")
+      cat(" Empty final data")
     }
     # Merge raw and final data
     else {
