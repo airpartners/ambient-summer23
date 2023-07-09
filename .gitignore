@@ -53,3 +53,6 @@ data/
 
 # Error log
 error_log.txt
+
+# Sanity check
+sanity_checks.Rmd
