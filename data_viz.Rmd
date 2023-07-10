@@ -85,8 +85,7 @@ modPM <- suppressMessages({
              full.names = TRUE) %>%
     purrr::map_dfr(read.csv)
 })
-```
-```{r}
+
 # Clean up Quant-AQ data
 modPM <- modPM %>%
   setnames(old = c(
@@ -192,12 +191,18 @@ modPM <- modPM %>%
 
 # Combine pm1 bins
 modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
-# Add a formatted date column
-modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
-# Delete unnecessary columns
-modPM <- subset(modPM, select = -c(url.x, url.y, sn.y, timestamp.y, geo.lat, geo.lon, met.rh, met.temp, met.wd, met.ws, geolat, geolon, metrh, mettemp, bin0, bin1, bin2))
 
-print(modPM)
+# Add a formatted date column
+modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%dT%H:%M:%S", tz = "America/New_York"))
+
+# Delete unnecessary columns
+modPM <- subset(modPM, select = -c(
+  url.x, url.y, sn.y, timestamp.y, geo.lat, geo.lon, met.rh, met.temp, met.wd, met.ws, geolat, geolon, metrh, geo.xlat,
+  geo.xlon, met.xrh, met.xtemp, nephbin0, nephbin1, nephbin2, nephbin3, nephbin4, nephbin5, nephpm1, nephpm10,
+  nephpm25, opcbin0, opcbin1, opcbin10, opcbin11, opcbin12, opcbin13, opcbin14, opcbin15, opcbin16, opcbin17, opcbin18,
+  opcbin19, opcbin2, opcbin20, opcbin21, opcbin22, opcbin23, opcbin3, opcbin4, opcbin5, opcbin6, opcbin7, opcbin8,
+  opcbin9, opcpm1, opcpm10, opcpm25, opcrh, opctemp, geo.ylat, geo.ylon, met.yrh, met.ytemp
+))
 ```
 
 ### Meteorology Data
@@ -216,8 +221,6 @@ metdata <- metdata %>%
 metdata$ws <- metdata$ws * (1609/3600) #converting to m/s, 1609 meters per mile, 3600 seconds per hr
 metdata[,c("station")] <- list(NULL) #getting rid of unnecessary variables
 metdata <- unique(metdata) #remove duplicates
-
-print(metdata)
 ```
 
 ### Merging Data-sets
@@ -229,8 +232,10 @@ metdata$met_date_1min <- lubridate::round_date(metdata$date, unit = "minute")
 
 # Merge the two datasets
 modPM_met <- dplyr::left_join(modPM, metdata, by = c("modPM_date_1min" = "met_date_1min"))
-# ARISense_met$date <- ARISense_met$date.x
 modPM_met$date <- modPM_met$date.x
+
+# Delete unnecessary columns
+modPM_met <- subset(modPM_met, select = -c(date.x, date.y))
 ```
 
 ### Sanity Checks
