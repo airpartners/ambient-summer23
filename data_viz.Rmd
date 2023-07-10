@@ -79,13 +79,48 @@ Use the following download options: `comma delimited` ,
 
 ```{r}
 # Read in csv files from data folder
-modPM <- suppressMessages({
-  list.files(path = "./data/Quant-AQ/MOD-PM",
-             pattern = "*.csv", 
-             full.names = TRUE) %>%
-    purrr::map_dfr(read.csv)
-})
+device_ids <- c(
+  "MOD-00024",
+  "MOD-00025",
+  "MOD-00026",
+  "MOD-00027",
+  "MOD-00028",
+  "MOD-PM-00141",
+  "MOD-PM-00211",
+  "MOD-PM-00212",
+  "MOD-PM-00213",
+  "MOD-PM-00214",
+  "MOD-PM-00216",
+  "MOD-PM-00217",
+  "MOD-PM-00221",
+  "MOD-PM-00222",
+  "MOD-PM-00224",
+  "MOD-PM-00226",
+  "MOD-PM-00230",
+  "MOD-PM-00231"
+)
 
+modPM <- suppressMessages({
+  data <- device_ids %>%
+    map_dfr(function(sensor_id) {
+      paths <- sprintf(
+        "./data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-07.csv",
+        sensor_id, sensor_id
+      )
+      map_dfr(paths, function(path) {
+        suppressWarnings(
+          tryCatch(
+            read.csv(path),
+            error = function(e) NULL
+          )
+        )
+      })
+    })
+  data
+})
+```
+
+```{r}
 # Clean up Quant-AQ data
 modPM <- modPM %>%
   setnames(old = c(
@@ -208,9 +243,19 @@ modPM <- subset(modPM, select = -c(
 ### Meteorology Data
 
 ```{r}
-metdata <- fread("data/metdata.csv", header=TRUE, data.table = TRUE) #import meteorology file
-metdata$date <- as.POSIXct(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York") #setting datetime, using correct timezone on East Coast Local time
+# Import meteorology file
+metdata <- suppressMessages({
+  list.files(path = "./data/Metdata/",
+             pattern = "*.csv", 
+             full.names = TRUE) %>%
+    purrr::map_dfr(read.csv)
+})
+
 print(metdata)
+# Setting datetime, using correct timezone on East Coast Local time
+metdata$date <- as.POSIXct(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York")
+print(metdata)
+
 metdata <- metdata %>%
   # if only wind speed and wind direction matter
   setnames(old = c("drct", "sped", "valid"), new = c("wd", "ws", "original_met_time")) %>% #rename
