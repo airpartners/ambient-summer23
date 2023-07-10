@@ -104,8 +104,8 @@ modPM <- suppressMessages({
   data <- device_ids %>%
     map_dfr(function(sensor_id) {
       paths <- sprintf(
-        "./data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-07.csv",
-        sensor_id, sensor_id
+        "./data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
+        sensor_id, sensor_id, 7:9
       )
       map_dfr(paths, function(path) {
         suppressWarnings(
@@ -223,12 +223,14 @@ modPM <- modPM %>%
     "pm25_model_id",
     "pm10_model_id"
   ))
+```
 
+```{r}
 # Combine pm1 bins
 modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
 
 # Add a formatted date column
-modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%dT%H:%M:%S", tz = "America/New_York"))
+modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
 
 # Delete unnecessary columns
 modPM <- subset(modPM, select = -c(
@@ -238,6 +240,7 @@ modPM <- subset(modPM, select = -c(
   opcbin19, opcbin2, opcbin20, opcbin21, opcbin22, opcbin23, opcbin3, opcbin4, opcbin5, opcbin6, opcbin7, opcbin8,
   opcbin9, opcpm1, opcpm10, opcpm25, opcrh, opctemp, geo.ylat, geo.ylon, met.yrh, met.ytemp
 ))
+print(modPM)
 ```
 
 ### Meteorology Data
@@ -254,7 +257,6 @@ metdata <- suppressMessages({
 print(metdata)
 # Setting datetime, using correct timezone on East Coast Local time
 metdata$date <- as.POSIXct(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York")
-print(metdata)
 
 metdata <- metdata %>%
   # if only wind speed and wind direction matter
@@ -266,6 +268,7 @@ metdata <- metdata %>%
 metdata$ws <- metdata$ws * (1609/3600) #converting to m/s, 1609 meters per mile, 3600 seconds per hr
 metdata[,c("station")] <- list(NULL) #getting rid of unnecessary variables
 metdata <- unique(metdata) #remove duplicates
+print(metdata)
 ```
 
 ### Merging Data-sets
@@ -298,20 +301,20 @@ openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise =
 Create a time series plot in r comparing bus/train arrival times to pollutant concentration, filtered for wind speed and/or direction
 
 ```{r}
-# Merge the datasets based on the timestamp column
-merged_data <- merge(arrival_times, pollutant_data, by = "timestamp", all = TRUE)
-
-# Filter the merged data based on wind speed and/or direction
-filtered_data <- merged_data %>%
-  filter(wind_speed > threshold_value)
-
-# Time series comparing bus/train arrival times to pollutant concentration
-ggplot(filtered_data, aes(x = timestamp)) +
-  geom_line(aes(y = arrival_times, color = "Arrival Times")) +
-  geom_line(aes(y = pollutant_concentration, color = "Pollutant Concentration")) +
-  labs(x = "Timestamp", y = "Values") +
-  scale_color_manual(values = c("Arrival Times" = "blue", "Pollutant Concentration" = "red")) +
-  theme_minimal()
+# # Merge the datasets based on the timestamp column
+# merged_data <- merge(arrival_times, pollutant_data, by = "timestamp", all = TRUE)
+# 
+# # Filter the merged data based on wind speed and/or direction
+# filtered_data <- merged_data %>%
+#   filter(wind_speed > threshold_value)
+# 
+# # Time series comparing bus/train arrival times to pollutant concentration
+# ggplot(filtered_data, aes(x = timestamp)) +
+#   geom_line(aes(y = arrival_times, color = "Arrival Times")) +
+#   geom_line(aes(y = pollutant_concentration, color = "Pollutant Concentration")) +
+#   labs(x = "Timestamp", y = "Values") +
+#   scale_color_manual(values = c("Arrival Times" = "blue", "Pollutant Concentration" = "red")) +
+#   theme_minimal()
 ```
 
 ### Graph 2
@@ -319,25 +322,22 @@ ggplot(filtered_data, aes(x = timestamp)) +
 Create bar graphs with each bar representing the pollutants from a single sensor (stacking 3 colors: pink for PM1, yellow for PM2.5, blue for PM10)
 
 ```{r}
-# Sample data (replace with your actual data)
-sensor_data <- data.frame(
-  Sensor = c("Sensor A", "Sensor B", "Sensor C"),
-  PM1 = c(10, 15, 8),
-  PM2.5 = c(20, 12, 18),
-  PM10 = c(30, 25, 22)
-)
+library(ggplot2)  # Load the ggplot2 package
+
+# Create a subset of the data for PM1, PM2.5, and PM10
+pm_subset <- modPM[, c("sn", "pm1", "pm25", "pm10")]
 
 # Reshape the data into long format
-sensor_data_long <- tidyr::gather(sensor_data, Pollutant, Value, -Sensor)
+pm_subset_long <- tidyr::pivot_longer(pm_subset, cols = c(pm1, pm25, pm10), names_to = "pollutant", values_to = "value")
 
-# Define colors for each pollutant
-colors <- c("PM1" = "pink", "PM2.5" = "yellow", "PM10" = "blue")
+# Define the colors for each pollutant
+colors <- c("pm1" = "orange", "pm25" = "yellow", "pm10" = "blue")
 
 # Create the bar graph
-ggplot(sensor_data_long, aes(x = Sensor, y = Value, fill = Pollutant)) +
+ggplot(pm_subset_long, aes(x = sn, y = value, fill = pollutant)) +
   geom_bar(stat = "identity", position = "stack") +
   scale_fill_manual(values = colors) +
-  labs(x = "Sensor", y = "Pollutant Value") +
+  labs(x = "Sensor ID", y = "Pollutant Value") +
   ggtitle("Pollutant Levels by Sensor") +
   theme_minimal()
 ```
@@ -347,29 +347,32 @@ ggplot(sensor_data_long, aes(x = Sensor, y = Value, fill = Pollutant)) +
 Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
 
 ```{r}
-# Sample data (replace with your actual data)
-sensor_data <- data.frame(
-  Month = c("Jan", "Feb", "Mar", "Apr", "May", "Jun"),
-  SensorA_Good = c(10, 12, 8, 15, 9, 11),
-  SensorA_Medium = c(5, 7, 6, 9, 4, 3),
-  SensorA_Bad = c(2, 3, 4, 1, 2, 5),
-  SensorB_Good = c(8, 6, 9, 11, 7, 10),
-  SensorB_Medium = c(4, 3, 2, 5, 6, 3),
-  SensorB_Bad = c(3, 2, 1, 4, 3, 2)
-)
+# Define air quality thresholds
+good_threshold <- 10  # Placeholder value for good air quality
+medium_threshold <- 20  # Placeholder value for medium air quality
+pmsum <- modPM_met$pm1 + modPM_met$pm25 + modPM_met$pm10
 
-# Reshape the data into long format
-sensor_data_long <- tidyr::gather(sensor_data, Sensor_Quality, Value, -Month)
+# Calculate the number of days in each category for each sensor in each month
+air_quality_summary <- modPM %>%
+  mutate(month = lubridate::month(date), 
+         air_quality_category = case_when(
+           pmsum <= good_threshold ~ "Good",
+           pmsum <= medium_threshold ~ "Medium",
+           TRUE ~ "Bad"
+         )) %>%
+  group_by(sn, month, air_quality_category) %>%
+  summarise(num_days = n()) %>%
+  ungroup()
 
-# Define colors for each quality level
-colors <- c("Good" = "green", "Medium" = "orange", "Bad" = "red")
+# Set the order of the air_quality_category factor levels
+air_quality_summary$air_quality_category <- factor(air_quality_summary$air_quality_category,levels = c("Bad","Medium", "Good"))
 
-# Create the bar graph
-ggplot(sensor_data_long, aes(x = Month, y = Value, fill = Sensor_Quality)) +
-  geom_bar(stat = "identity", position = "stack") +
-  scale_fill_manual(values = colors) +
-  labs(x = "Month", y = "Number of Days") +
-  ggtitle("Air Quality by Month and Sensor") +
+# Create the stacked bar graph
+ggplot(air_quality_summary, aes(x = month, y = num_days, fill = air_quality_category)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Good" = "green", "Medium" = "orange", "Bad" = "red")) +
+  labs(x = "Month", y = "Number of Days", fill = "Air Quality") +
+  ggtitle("Air Quality Summary by Month and Sensor") +
   theme_minimal()
 ```
 
@@ -390,7 +393,7 @@ pollution_data <- data.frame(
 )
 
 # Create the average polar plots
-avg_polar_plots <- polarPlot(pollution_data, pollutant = c("PM1", "PM2.5", "PM10"), 
+avg_polar_plots <- polarPlot(pollution_data, pollutant = c("PM1", "PM2.5", "PM10"),
                              type = "average", res = 1, start = "all",
                              polar = TRUE, ci = FALSE, nsector = 12)
 

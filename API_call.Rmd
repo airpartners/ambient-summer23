@@ -20,7 +20,7 @@ below.
 
 ## DATA GUIDE
 
-You can find a premade dataset created using this API call document in
+You can find a pre-made data set created using this API call document in
 [this
 branch](https://github.com/airpartners/ambient-summer23/tree/datafolder)
 of the [ambient
@@ -131,7 +131,7 @@ if (!file.exists(data_folder_path)) {
 }
 
 # Function to process a single device ID
-process_device_id <- function(device_id, date, state) {
+process_device_id <- function(device_id) {
   # Initialize empty sensor data frame
   merged_data_per_sensor <- data.frame()
   for (date in time_range) {
@@ -254,6 +254,6 @@ process_device_id <- function(device_id, date, state) {
 
 # Process each device ID over time range
 for (device_id in device_ids) {
-  process_device_id(device_id, date, state)
+  process_device_id(device_id)
 }
 ```
