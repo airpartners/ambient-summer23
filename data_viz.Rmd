@@ -347,14 +347,15 @@ ggplot(pm_subset_long, aes(x = sn, y = value, fill = pollutant)) +
 Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
 
 ```{r}
+library(ggplot2)  # Load the ggplot2 package
+
 # Define air quality thresholds
 good_threshold <- 10  # Placeholder value for good air quality
 medium_threshold <- 20  # Placeholder value for medium air quality
-pmsum <- modPM_met$pm1 + modPM_met$pm25 + modPM_met$pm10
 
 # Calculate the number of days in each category for each sensor in each month
 air_quality_summary <- modPM %>%
-  mutate(month = lubridate::month(date), 
+  mutate(month = lubridate::month(date),
          air_quality_category = case_when(
            pmsum <= good_threshold ~ "Good",
            pmsum <= medium_threshold ~ "Medium",
@@ -365,7 +366,7 @@ air_quality_summary <- modPM %>%
   ungroup()
 
 # Set the order of the air_quality_category factor levels
-air_quality_summary$air_quality_category <- factor(air_quality_summary$air_quality_category,levels = c("Bad","Medium", "Good"))
+air_quality_summary$air_quality_category <- factor(air_quality_summary$air_quality_category, levels = c("Bad", "Medium", "Good"))
 
 # Create the stacked bar graph
 ggplot(air_quality_summary, aes(x = month, y = num_days, fill = air_quality_category)) +
@@ -373,7 +374,9 @@ ggplot(air_quality_summary, aes(x = month, y = num_days, fill = air_quality_cate
   scale_fill_manual(values = c("Good" = "green", "Medium" = "orange", "Bad" = "red")) +
   labs(x = "Month", y = "Number of Days", fill = "Air Quality") +
   ggtitle("Air Quality Summary by Month and Sensor") +
-  theme_minimal()
+  theme_minimal() +
+  facet_grid(sn ~ ., scales = "free_x", labeller = labeller(sn = sn_labels)) +
+  geom_text(aes(label = num_days), position = position_stack(vjust = 0.5), color = "white")
 ```
 
 ### Graph 4
