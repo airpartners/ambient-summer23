@@ -12,6 +12,7 @@ packages <- c(
   "data.table",  # Package for efficient data manipulation and processing
   "dplyr",       # Package for data manipulation and transformation
   "openair",     # Package for analyzing air pollution data
+  # "openairmaps", # Package for accessing open air pollution data
   "stringr",     # Package for string manipulation
   "baseline",    # Package for baseline modeling and adjustment
   "purrr",       # Package for functional programming
