@@ -22,7 +22,8 @@ packages <- c(
   "purrr",       # Package for functional programming
   "tidyverse",   # Meta-package for data science
   "maps",         # Package for creating maps
-  "wesanderson"
+  "wesanderson",
+  "plotly"
 )
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
@@ -339,31 +340,39 @@ monthly_averages <- pm_subset_long %>%
   summarise(value = mean(value))
 
 # Specify the order of pollutants in the stack
-pm_subset_long$pollutant <- factor(pm_subset_long$pollutant, levels = c("pm1", "pm25", "pm10"))
-monthly_averages$pollutant <- factor(monthly_averages$pollutant, levels = c("pm1", "pm25", "pm10"))
+pm_subset_long$pollutant <- factor(pm_subset_long$pollutant, levels = c("pm10", "pm25", "pm1"))
 
 # Assign colors to each pollutant
 color_palette <- wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
-color_mapping <- c("pm1" = color_palette[2], "pm25" = color_palette[3], "pm10" = color_palette[1])
+color_mapping <- c("pm10" = color_palette[1], "pm25" = color_palette[3], "pm1" = color_palette[2])
+
+# Create a list to store the monthly figures
+monthly_figures <- list()
 
 # Create separate graphs for each month and sensor
-monthly_graphs <- lapply(unique(monthly_averages$month), function(m) {
+for (m in unique(monthly_averages$month)) {
   month_data <- monthly_averages[monthly_averages$month == m, ]
   
-  # Create the bar graph
-  ggplot(month_data, aes(x = sn, y = value, fill = pollutant)) +
+  # Create the bar graph with modified stack order and hover text
+  p <- ggplot(month_data, aes(x = sn, y = value, fill = pollutant, text = paste(pollutant, ": ", value))) +
     geom_col(position = "stack") +
     labs(x = "Sensor ID", y = "ug/m3") +
     ggtitle(paste("Monthly Average Pollutant Levels by Sensor -", m)) +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size=7),
-        legend.position = "bottom") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 7),
+          legend.position = "bottom") +
     scale_fill_manual(values = color_mapping, guide = guide_legend(reverse = TRUE))
-})
+  
+  # Convert the ggplot to plotly figure
+  p <- ggplotly(p)
+  
+  # Add the plotly figure to the list
+  monthly_figures[[m]] <- p
+}
 
-# Print the monthly graphs
-for (graph in monthly_graphs) {
-  print(graph)
+# Print the monthly figures
+for (fig in monthly_figures) {
+  print(fig)
 }
 
 # Sum PM1, PM2.5, and PM10 per sensor by year
@@ -371,19 +380,22 @@ yearly_sums <- pm_subset_long %>%
   group_by(sn, year = lubridate::year(date), pollutant) %>%
   summarise(value = sum(value))
 
-# Create a graph for total PM1, PM2.5, and PM10 per sensor by year
-ggplot(yearly_sums, aes(x = sn, y = value, fill = pollutant)) +
+# Create the bar graph with hover text
+p <- ggplot(yearly_sums, aes(x = sn, y = value, fill = pollutant, text = paste(pollutant, ": ", value))) +
   geom_col(position = "stack") +
   labs(x = "Sensor ID", y = "ug/m3") +
   ggtitle("Total Pollutant Levels by Sensor - Yearly Sum") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size=7),
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 7),
         legend.position = "bottom") +
   scale_fill_manual(values = color_mapping, guide = guide_legend(reverse = TRUE))
-gc()
-```
 
-```         
+# Convert the ggplot to plotly figure
+p <- ggplotly(p)
+
+# Print the yearly figure
+print(p)
+gc()
 ```
 
 ### Graph 3
