@@ -5,7 +5,44 @@ date: "2023-07-17"
 output: html_document
 ---
 
-[Markdown file docstrings]
+This document primarily focuses on importing, merging, and pre-processing the data to prepare it for further analysis.
+
+Follow the **FETCHING DATA TO IMPORT** session to retrieve data for this document. Pressing `Ctrl + Alt + R` (run all) for this markdown file would results in a `graphableData.RData` file being created and saved into the data folder. This file contains the data frame `modPM_met` that can be used to graph, to visualize this data frame, simply load it and run the print function commented below:
+
+```{r}
+# load("../data/graphableData.RData")
+# print(modPM_met)
+```
+
+To understand and modify the below code, see the **FILE GUIDE** session below.
+
+## FILE GUIDE
+
+A. **INITIAL SETTINGS**
+
+-   Required R packages are installed and loaded. Warnings during package loading are suppressed.
+
+B. **FETCHING DATA TO IMPORT**
+
+-   As stated before, in order to run this markdown file, you need a few file pre-requisites fulfilled. The instructions to retrieve them is found in this session.
+
+C. **IMPORT DATA AND PRE-PROCESSING**
+
+1.  Quant-AQ Data
+
+-   Import data from .csv files by columns, clean up names, add latitude, longitude, site names, cleaned data, and store in the data frame `modPM`
+
+2.  Meteorology Data
+
+-   Import data from all .csv files in the `Metdata` folder, clean data, and store in the data frame `metdata`
+
+D. **DATA PROCESSING**
+
+1.  Merging Datasets: Time sync and merge the Quant-AQ and Meteorology datasets
+
+2.  Cleaning Up and Save the Work Space: I think the name is pretty descriptive
+
+3.  Sanity Checks: Optional commented out code that you can use to test if the code above is working correctly
 
 ## INITAL SETTINGS
 
@@ -15,7 +52,8 @@ packages <- c(
   "lubridate",   # Package for working with dates and times
   "dplyr",       # Package for data manipulation and transformation
   "purrr",       # Package for functional programming
-  "tidyverse"   # Meta-package for data science
+  "tidyverse",   # Meta-package for data science
+  "readr"
 )
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
@@ -72,7 +110,16 @@ Use the following download options: `comma delimited` ,
 ### Quant-AQ Data
 
 ```{r}
-# Read in csv files from data folder
+# Specify the columns you want to read
+columns_to_read <- c(
+  "pm1", "pm25", "pm10", "co", "no", "no2", "o3", "opc.bin0",
+  "opc.bin1", "opc.bin2", "opc.bin3", "opc.bin4", "opc.bin5",
+  "opc.bin6", "opc.bin7", "opc.bin8", "opc.bin9", "opc.bin10",
+  "opc.bin11", "opc.bin12", "opc.bin13", "opc.bin14", "opc.bin15",
+  "opc.bin16", "opc.bin17", "timestamp_local", "sn.x", "timestamp.x"
+)
+
+# Read in csv files from data folder and select specific columns
 device_ids <- c(
   "MOD-00024",
   "MOD-00025",
@@ -97,14 +144,20 @@ device_ids <- c(
 modPM <- suppressMessages({
   data <- device_ids %>%
     map_dfr(function(sensor_id) {
-      paths <- sprintf(
-        "./data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
-        sensor_id, sensor_id, 7:12
+      paths <- c(
+        sprintf(
+          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
+          sensor_id, sensor_id, 7:12
+        ),
+        sprintf(
+          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2023-%02d.csv",
+          sensor_id, sensor_id, 1:2
+        )
       )
       map_dfr(paths, function(path) {
         suppressWarnings(
           tryCatch(
-            read.csv(path),
+            read_csv(path, col_select = columns_to_read),
             error = function(e) NULL
           )
         )
@@ -137,34 +190,6 @@ modPM <- modPM %>%
     bin15 = opc.bin15,
     bin16 = opc.bin16,
     bin17 = opc.bin17,
-    bin18 = opc.bin18,
-    bin19 = opc.bin19,
-    bin20 = opc.bin20,
-    bin21 = opc.bin21,
-    bin22 = opc.bin22,
-    bin23 = opc.bin23,
-    opcn3_pm1 = opc.pm1,
-    opcn3_pm25 = opc.pm25,
-    opcn3_pm10 = opc.pm10,
-    pm1_env = neph.pm1,
-    pm25_env = neph.pm25,
-    pm10_env = neph.pm10,
-    neph_csat = neph.cscat,
-    co_we = gases.co.we,
-    co_ae = gases.co.ae,
-    co_diff = gases.co.diff,
-    no_we = gases.no.we,
-    no_ae = gases.no.ae,
-    no_diff = gases.no.diff,
-    no2_we = gases.no2.we,
-    no2_ae = gases.no2.ae,
-    no2_diff = gases.no2.diff,
-    o3_we = gases.o3.we,
-    o3_ae = gases.o3.ae,
-    ox_diff = gases.o3.diff,
-    pm1_model_id = modelpmpm1,
-    pm25_model_id = modelpmpm25,
-    pm10_model_id = modelpmpm10
   )
 ```
 
@@ -195,7 +220,7 @@ sn_lon <- c(
 )
 
 # Define the site names for each sensor
-sn_siteName <- c(
+sn_sitename <- c(
   "MOD-00024" = "ACE Parking Lot", "MOD-00025" = "Hale Elem",
   "MOD-00026" = "The Base", "MOD-00027" = "Indigo Block",
   "MOD-00028" = "Hibernian Playgr.", "MOD-PM-00141" = "Tobin Comm Ctr",
@@ -210,7 +235,7 @@ sn_siteName <- c(
 # Add "lat", "lon", "siteName" columns to the existing data frame
 modPM$lat <- sn_lat[modPM$sn]
 modPM$lon <- sn_lon[modPM$sn]
-modPM$siteName <- sn_siteName[modPM$sn]
+modPM$sitename <- sn_sitename[modPM$sn]
 
 print(modPM)
 ```
@@ -222,20 +247,6 @@ modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
 # Add a formatted date column
 modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
 
-# Delete unnecessary columns
-columns_to_delete <- c(
-  "url.x", "url.y", "sn.y", "timestamp.y", "geo.lat", "geo.lon", "met.rh", "met.temp", "met.wd", "met.ws",
-  "geolat", "geolon", "metrh", "geo.xlat", "geo.xlon", "met.xrh", "met.xtemp", "nephbin0", "nephbin1",
-  "nephbin2", "nephbin3", "nephbin4", "nephbin5", "nephpm1", "nephpm10", "nephpm25", "opcbin0", "opcbin1",
-  "opcbin10", "opcbin11", "opcbin12", "opcbin13", "opcbin14", "opcbin15", "opcbin16", "opcbin17", "opcbin18",
-  "opcbin19", "opcbin2", "opcbin20", "opcbin21", "opcbin22", "opcbin23", "opcbin3", "opcbin4", "opcbin5",
-  "opcbin6", "opcbin7", "opcbin8", "opcbin9", "opcpm1", "opcpm10", "opcpm25", "opcrh", "opctemp", "geo.ylat",
-  "geo.ylon", "met.yrh", "met.ytemp"
-)
-
-modPM <- modPM %>%
-  select(-one_of(columns_to_delete))
-
 print(modPM)
 ```
 
@@ -244,7 +255,7 @@ print(modPM)
 ```{r}
 # Import meteorology file
 metdata <- suppressMessages({
-  list.files(path = "./data/Metdata/",
+  list.files(path = "../data/Metdata/",
              pattern = "*.csv", 
              full.names = TRUE) %>%
     purrr::map_dfr(read.csv)
@@ -263,6 +274,7 @@ metdata <- metdata %>%
 metdata$ws <- metdata$ws * (1609/3600) #converting to m/s, 1609 meters per mile, 3600 seconds per hr
 metdata[,c("station")] <- list(NULL) #getting rid of unnecessary variables
 metdata <- unique(metdata) #remove duplicates
+
 print(metdata)
 ```
 
@@ -271,7 +283,7 @@ print(metdata)
 ### Merging Datasets
 
 ```{r}
-# Time sync and merge met and pollution data
+# Time sync met and pollution data
 modPM$modPM_date_1min <- lubridate::round_date(modPM$date, unit = "minute")
 metdata$met_date_1min <- lubridate::round_date(metdata$date, unit = "minute")
 
@@ -289,16 +301,16 @@ modPM_met <- subset(modPM_met, select = -c(date.x, date.y))
 # Remove all objects except the final data frame
 rm(list = setdiff(ls(), "modPM_met"))
 # Save environment to graphableData.RData
-save.image("./data/graphableData.RData")
+save.image("../data/graphableData.RData")
 ```
 
 ### Sanity Checks
 
 ```{r}
-# # Uncomment to test timeVar plots
-# # Feel free to add any additional tests
-# library(openair)
-# 
-# print(modPM_met)
-# openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+# Uncomment to test timeVar plots
+# Feel free to add any additional tests
+library(openair)
+
+print(modPM_met)
+openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
 ```
