@@ -1,0 +1,165 @@
+---
+title: "Data Visualization"
+author: "Cherry Pham"
+date: "2023-07-06"
+output: html_document
+---
+
+[Markdown file docstrings]
+
+## INITAL SETTINGS
+
+```{r setup, include=FALSE}
+# Check and install required packages if necessary
+packages <- c(
+  "lubridate",   # Package for working with dates and times
+  "data.table",  # Package for efficient data manipulation and processing
+  "dplyr",       # Package for data manipulation and transformation
+  "openair",     # Package for analyzing air pollution data
+  "openairmaps", # Package for accessing open air pollution data
+  "stringr",     # Package for string manipulation
+  "baseline",    # Package for baseline modeling and adjustment
+  "purrr",       # Package for functional programming
+  "tidyverse",   # Meta-package for data science
+  "maps",        # Package for creating maps
+  "wesanderson"
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## GRAPHING
+
+### Graph 1
+
+Create a time series plot in r comparing bus/train arrival times to pollutant concentration, filtered for wind speed and/or direction
+
+```{r}
+# # Merge the datasets based on the timestamp column
+# merged_data <- merge(arrival_times, pollutant_data, by = "timestamp", all = TRUE)
+# 
+# # Filter the merged data based on wind speed and/or direction
+# filtered_data <- merged_data %>%
+#   filter(wind_speed > threshold_value)
+# 
+# # Time series comparing bus/train arrival times to pollutant concentration
+# ggplot(filtered_data, aes(x = timestamp)) +
+#   geom_line(aes(y = arrival_times, color = "Arrival Times")) +
+#   geom_line(aes(y = pollutant_concentration, color = "Pollutant Concentration")) +
+#   labs(x = "Timestamp", y = "Values") +
+#   scale_color_manual(values = c("Arrival Times" = "blue", "Pollutant Concentration" = "red")) +
+#   theme_minimal()
+#   gc()
+```
+
+### Graph 3
+
+Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
+
+```{r}
+library(ggplot2)  # Load the ggplot2 package
+
+# Define air quality thresholds
+good_threshold <- 10  # Placeholder value for good air quality
+medium_threshold <- 20  # Placeholder value for medium air quality
+
+# Calculate the number of days in each category for each sensor in each month
+air_quality_summary <- modPM %>%
+  mutate(month = lubridate::month(date),
+         air_quality_category = case_when(
+           pmsum <= good_threshold ~ "Good",
+           pmsum <= medium_threshold ~ "Medium",
+           TRUE ~ "Bad"
+         )) %>%
+  group_by(sn, month, air_quality_category) %>%
+  summarise(num_days = n()) %>%
+  ungroup()
+
+# Set the order of the air_quality_category factor levels
+air_quality_summary$air_quality_category <- factor(air_quality_summary$air_quality_category, levels = c("Bad", "Medium", "Good"))
+
+# Create the stacked bar graph
+ggplot(air_quality_summary, aes(x = month, y = num_days, fill = air_quality_category)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Good" = "green", "Medium" = "orange", "Bad" = "red")) +
+  labs(x = "Month", y = "Number of Days", fill = "Air Quality") +
+  ggtitle("Air Quality Summary by Month and Sensor") +
+  theme_minimal() +
+  facet_grid(sn ~ ., scales = "free_x", labeller = labeller(sn = sn_labels)) +
+  geom_text(aes(label = num_days), position = position_stack(vjust = 0.5), color = "white")
+gc()
+```
+
+### Graph 4
+
+Create a map with the average polar plots w/ of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+
+```{r}
+# Sample data (replace with your actual data)
+pollution_data <- data.frame(
+  Longitude = c(-74.0060, -73.9352, -73.9919, -73.9962, -73.9812),
+  Latitude = c(40.7128, 40.7309, 40.7589, 40.7488, 40.7549),
+  PM1 = c(5.2, 6.3, 4.8, 5.9, 6.1),
+  PM2.5 = c(10.1, 12.5, 9.8, 11.2, 12.4),
+  PM10 = c(15.6, 18.9, 14.2, 16.8, 17.9),
+  DateTime = as.POSIXct(c("2023-01-01 12:00:00", "2023-01-01 12:00:00", "2023-01-01 12:00:00",
+                          "2023-01-01 12:00:00", "2023-01-01 12:00:00"))
+)
+
+# Create the average polar plots
+avg_polar_plots <- polarPlot(pollution_data, pollutant = c("PM1", "PM2.5", "PM10"),
+                             type = "average", res = 1, start = "all",
+                             polar = TRUE, ci = FALSE, nsector = 12)
+
+# Plot the polar plots on a map
+plot(avg_polar_plots, map = TRUE)
+gc()
+```
+
+### Graph 5
+
+Create a map of for the average of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+
+```{r}
+# Sample data (replace with your actual data)
+pollution_data <- data.frame(
+  Longitude = c(-74.0060, -73.9352, -73.9919, -73.9962, -73.9812),
+  Latitude = c(40.7128, 40.7309, 40.7589, 40.7488, 40.7549),
+  PM1 = c(5.2, 6.3, 4.8, 5.9, 6.1),
+  PM2.5 = c(10.1, 12.5, 9.8, 11.2, 12.4),
+  PM10 = c(15.6, 18.9, 14.2, 16.8, 17.9),
+  Date = as.Date(c("2023-01-01", "2023-01-01", "2023-01-01", "2023-01-01", "2023-01-01"))
+)
+
+# Define the map boundaries
+map_limits <- map("world", "USA", xlim = c(-125, -66), ylim = c(24, 50), plot = FALSE)
+
+# Function to plot the map with average pollution values
+plot_pollution_map <- function(data, period) {
+  # Aggregate data by period
+  aggregated_data <- aggregate(. ~ Longitude + Latitude, data = data, FUN = mean)
+  
+  # Create the map plot
+  ggplot() +
+    geom_polygon(data = map_limits, aes(x = long, y = lat, group = group), fill = "lightgray", color = "black") +
+    geom_point(data = aggregated_data, aes(x = Longitude, y = Latitude, color = PM1), size = 3) +
+    scale_color_gradient(low = "green", high = "red", name = "PM1") +
+    labs(title = paste("Average PM1", period)) +
+    theme_minimal()
+}
+
+# Plot the maps for different periods
+plot_all_time <- plot_pollution_map(pollution_data, "All Time")
+plot_monthly <- plot_pollution_map(pollution_data, "Monthly")
+plot_daily <- plot_pollution_map(pollution_data, "Daily")
+plot_hourly <- plot_pollution_map(pollution_data, "Hourly")
+gc()
+```

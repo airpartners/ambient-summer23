@@ -1,0 +1,88 @@
+---
+title: "Polar Plots"
+output: html_document
+date: "2023-07-17"
+---
+
+[Markdown file docstrings]
+
+## INITAL SETTINGS
+
+```{r setup, include=FALSE}
+# Check and install required packages if necessary
+packages <- c(
+  "openair",     # Package for analyzing air pollution data
+  "openairmaps"  # Package for accessing open air pollution data
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## DATA LOADING AND CLEANING
+
+```{r}
+# Load data frame
+load("../data/graphableData.RData")
+
+# Calculate the average of each PM
+averagePM1 <- mean(modPM_met$pm1)
+averagePM25 <- mean(modPM_met$pm25)
+averagePM10 <- mean(modPM_met$pm10)
+
+# Set the threshold for significant difference
+threshold <- 2  # You can adjust this value as per your requirement
+
+# Filter out rows where the column value is significantly bigger than the average
+modPM_met_filtered <- modPM_met[modPM_met$pm1 <= averagePM1 * threshold, ]
+modPM_met_filtered <- modPM_met[modPM_met$pm25 <= averagePM25 * threshold, ]
+modPM_met_filtered <- modPM_met[modPM_met$pm10 <= averagePM10 * threshold, ]
+```
+
+## POLAR PLOTTING
+
+### Plotting Only PM1
+
+```{r}
+polarMap(
+  modPM_met,
+  pollutant = c("pm1", "pm25", "pm10"),
+  latitude = "lat",
+  longitude = "lon",
+  limits = c(0,6),
+  key = TRUE,
+  provider = "OpenStreetMap")
+```
+
+### Plotting Only PM2.5
+
+```{r}
+polarMap(
+  modPM_met,
+  pollutant = c("pm25"),
+  latitude = "lat",
+  longitude = "lon",
+  limits = c(0,8),
+  key = TRUE,
+  provider = "OpenStreetMap")
+```
+
+### Plotting Only PM10
+
+```{r}
+polarMap(
+  modPM_met,
+  pollutant = c("pm10"),
+  latitude = "lat",
+  longitude = "lon",
+  limits = c(0,23),
+  key = TRUE,
+  provider = "OpenStreetMap")
+```

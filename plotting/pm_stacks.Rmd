@@ -1,0 +1,164 @@
+---
+title: "PM Stacks"
+author: "Cherry Pham"
+date: "2023-07-20"
+output: html_document
+---
+
+[Markdown file docstrings]
+
+## INITAL SETTINGS
+
+```{r setup, include=FALSE}
+# Check and install required packages if necessary
+packages <- c(
+  "lubridate",   # Package for working with dates and times
+  "dplyr",       # Package for data manipulation and transformation
+  "tidyverse",   # Meta-package for data science
+  "wesanderson"
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## DATA LOADING AND CLEANING
+
+```{r}
+# Load data frame
+load("../data/graphableData.RData")
+```
+
+## PLOTTING
+
+### F4 - POLLUTION PER SENSOR (PM STACKS)
+
+Create bar graphs with each bar representing the pollutants from a single sensor
+```{r}
+# Create a subset of the data for PM1, PM2.5, and PM10
+pm_subset <- modPM_met[, c("sn", "pm1", "pm25", "pm10", "date")]
+
+# Convert the date column to a month format
+pm_subset$date <- as.Date(pm_subset$date)
+pm_subset$month <- format(pm_subset$date, "%Y-%m")
+
+# Reshape the data into long format and calculate monthly averages
+pm_subset_long <-
+  tidyr::pivot_longer(
+    pm_subset,
+    cols = c(pm1, pm25, pm10),
+    names_to = "pollutant",
+    values_to = "value"
+  )
+monthly_averages <- pm_subset_long %>%
+  group_by(sn, month, pollutant) %>%
+  summarise(value = mean(value))
+
+# Specify the order of pollutants in the stack
+pm_subset_long$pollutant <-
+  factor(pm_subset_long$pollutant, levels = c("pm1", "pm25", "pm10"))
+
+# Assign colors to each pollutant
+color_palette <-
+  wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
+color_mapping <-
+  c("pm10" = color_palette[1],
+    "pm25" = color_palette[3],
+    "pm1" = color_palette[2])
+
+# Function to find the maximum sum of PM1, PM2.5, and PM10 values for each month
+find_max_pollutant <- function(data) {
+  max_sensors <- data %>%
+    group_by(month, sn) %>%
+    summarise(sum_value = sum(value)) %>%
+    group_by(month) %>%
+    filter(sum_value == max(sum_value)) %>%
+    select(month, sn, sum_value)
+  
+  return(max_sensors)
+}
+
+# Find the sensor with the maximum sum of PM1, PM2.5, and PM10 values
+# for each month
+max_sensors <- find_max_pollutant(monthly_averages)
+
+# Find the overall maximum value for y-axis scaling
+max_value <- max(max_sensors$sum_value)
+print(max_value)
+
+# Create separate graphs for each month and sensor
+monthly_graphs <-
+  lapply(unique(monthly_averages$month), function(m) {
+    month_data <- monthly_averages[monthly_averages$month == m, ]
+    
+    # Find the sensor with the maximum sum for the month
+    max_sensor <- max_sensors$sum_value[max_sensors$month == m]
+    
+    # Create the bar graph
+    ggplot(month_data, aes(x = sn, y = value, fill = pollutant)) +
+      geom_col(position = "stack") +
+      geom_text(
+        aes(label = sprintf("%.2e", value)),
+        position = position_stack(vjust = 0.5),
+        color = "black",
+        size = 1.5
+      ) +
+      labs(x = "Sensor ID", y = "ug/m3") +
+      ggtitle(paste("Monthly Average Pollutant Levels by Sensor -", m)) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(
+        angle = 90,
+        vjust = 0.5,
+        size = 7
+      ),
+      legend.position = "bottom") +
+      scale_fill_manual(values = color_mapping,
+                        guide = guide_legend(reverse = FALSE)) +
+      # Adjust the ylim with the overall maximum value
+      coord_cartesian(ylim = c(0, max_value))  
+  })
+
+# Print the monthly graphs
+for (graph in monthly_graphs) {
+  print(graph)
+}
+
+# Sum PM1, PM2.5, and PM10 per sensor by year
+yearly_sums <- pm_subset_long %>%
+  group_by(sn, year = lubridate::year(date), pollutant) %>%
+  summarise(value = sum(value))
+
+# Calculate the maximum bar width for scaling the text size
+max_width <- max(table(yearly_sums$sn))
+
+# Create a graph for total PM1, PM2.5, and PM10 per sensor by year
+ggplot(yearly_sums, aes(x = sn, y = value, fill = pollutant)) +
+  geom_col(position = "stack") +
+  geom_text(
+    aes(label = sprintf("%.2e", value)),
+    position = position_stack(vjust = 0.5),
+    color = "black",
+    size = 2
+  ) +
+  labs(x = "Sensor ID", y = "ug/m3") +
+  ggtitle("Total Pollutant Levels by Sensor - Yearly Sum") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    vjust = 0.5,
+    size = 7
+  ),
+  legend.position = "bottom") +
+  scale_fill_manual(
+    values = color_mapping,
+    breaks = c("pm1", "pm25", "pm10"),
+    guide = guide_legend(reverse = FALSE)
+  )
+```

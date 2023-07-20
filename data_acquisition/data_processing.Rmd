@@ -1,0 +1,304 @@
+---
+title: "Data Processing"
+author: "Cherry Pham"
+date: "2023-07-17"
+output: html_document
+---
+
+[Markdown file docstrings]
+
+## INITAL SETTINGS
+
+```{r setup, include=FALSE}
+# Check and install required packages if necessary
+packages <- c(
+  "lubridate",   # Package for working with dates and times
+  "dplyr",       # Package for data manipulation and transformation
+  "purrr",       # Package for functional programming
+  "tidyverse"   # Meta-package for data science
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## FETCHING DATA TO IMPORT
+
+To skip this session, go to the data folder branch of [this repository](https://github.com/airpartners/ambient-summer23/tree/datafolder) to download a pre-made data folder. If you want to modify data/download data for yourself, refer to the below instructions within this session.
+
+### Quant-AQ Data
+
+Refer to the Markdown file API_call.Rmd in this folder. The data should be in ./data/Quant-AQ/MOD-PM/ if nothing goes wrong.
+
+### Meteorology Data
+
+The meteorology data used in some analysis below are taken from the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
+
+Below are the downloading instructions taken from the [EB Gibson Park Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
+
+Select the following station: \* [BOS] BOSTON/LOGAN INTL
+
+Select the following variables:
+
+-   Temperature (C)
+
+-   Wind Direction
+
+-   Wind Speed [mph]
+
+Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not inclusive of the last date)
+
+Select this timezone: `America/New_York`
+
+Use the following download options: `comma delimited` ,
+
+`no latitude/longitude vectors` ,
+
+`no elevation` ,
+
+`represent missing data with blank string` ,
+
+`denote trace with blank string`
+
+## IMPORT DATA AND PRE-PROCESSING
+
+### Quant-AQ Data
+
+```{r}
+# Read in csv files from data folder
+device_ids <- c(
+  "MOD-00024",
+  "MOD-00025",
+  "MOD-00026",
+  "MOD-00027",
+  "MOD-00028",
+  "MOD-PM-00141",
+  "MOD-PM-00211",
+  "MOD-PM-00212",
+  "MOD-PM-00213",
+  "MOD-PM-00214",
+  "MOD-PM-00216",
+  "MOD-PM-00217",
+  "MOD-PM-00221",
+  "MOD-PM-00222",
+  "MOD-PM-00224",
+  "MOD-PM-00226",
+  "MOD-PM-00230",
+  "MOD-PM-00231"
+)
+
+modPM <- suppressMessages({
+  data <- device_ids %>%
+    map_dfr(function(sensor_id) {
+      paths <- sprintf(
+        "./data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
+        sensor_id, sensor_id, 7:12
+      )
+      map_dfr(paths, function(path) {
+        suppressWarnings(
+          tryCatch(
+            read.csv(path),
+            error = function(e) NULL
+          )
+        )
+      })
+    })
+})
+```
+
+```{r}
+# Rename to match manually downloaded datasets
+modPM <- modPM %>%
+  rename(
+    timestamp = timestamp.x,
+    sn = sn.x,
+    bin0 = opc.bin0,
+    bin1 = opc.bin1,
+    bin2 = opc.bin2,
+    bin3 = opc.bin3,
+    bin4 = opc.bin4,
+    bin5 = opc.bin5,
+    bin6 = opc.bin6,
+    bin7 = opc.bin7,
+    bin8 = opc.bin8,
+    bin9 = opc.bin9,
+    bin10 = opc.bin10,
+    bin11 = opc.bin11,
+    bin12 = opc.bin12,
+    bin13 = opc.bin13,
+    bin14 = opc.bin14,
+    bin15 = opc.bin15,
+    bin16 = opc.bin16,
+    bin17 = opc.bin17,
+    bin18 = opc.bin18,
+    bin19 = opc.bin19,
+    bin20 = opc.bin20,
+    bin21 = opc.bin21,
+    bin22 = opc.bin22,
+    bin23 = opc.bin23,
+    opcn3_pm1 = opc.pm1,
+    opcn3_pm25 = opc.pm25,
+    opcn3_pm10 = opc.pm10,
+    pm1_env = neph.pm1,
+    pm25_env = neph.pm25,
+    pm10_env = neph.pm10,
+    neph_csat = neph.cscat,
+    co_we = gases.co.we,
+    co_ae = gases.co.ae,
+    co_diff = gases.co.diff,
+    no_we = gases.no.we,
+    no_ae = gases.no.ae,
+    no_diff = gases.no.diff,
+    no2_we = gases.no2.we,
+    no2_ae = gases.no2.ae,
+    no2_diff = gases.no2.diff,
+    o3_we = gases.o3.we,
+    o3_ae = gases.o3.ae,
+    ox_diff = gases.o3.diff,
+    pm1_model_id = modelpmpm1,
+    pm25_model_id = modelpmpm25,
+    pm10_model_id = modelpmpm10
+  )
+```
+
+```{r}
+# Define the latitude and longitude values for each sensor
+sn_lat <- c(
+  "MOD-00024" = 42.33155829160215, "MOD-00025" = 42.32862119,
+  "MOD-00026" = 42.325756, "MOD-00027" = 42.32012,
+  "MOD-00028" = 42.3289, "MOD-PM-00141" = 42.3328,
+  "MOD-PM-00211" = 42.3207, "MOD-PM-00212" = 42.326244,
+  "MOD-PM-00213" = 42.3145978, "MOD-PM-00214" = 42.315932,
+  "MOD-PM-00216" = 42.3294, "MOD-PM-00217" = 42.32355,
+  "MOD-PM-00221" = 42.312182, "MOD-PM-00222" = 42.331,
+  "MOD-PM-00224" = 42.32012, "MOD-PM-00226" = 42.3226,
+  "MOD-PM-00230" = 42.3199, "MOD-PM-00231" = 42.3161
+)
+
+sn_lon <- c(
+  "MOD-00024" = -71.08360367349657, "MOD-00025" = -71.086748391,
+  "MOD-00026" = -71.068577, "MOD-00027" = -71.0679,
+  "MOD-00028" = -71.0815, "MOD-PM-00141" = -71.097597,
+  "MOD-PM-00211" = -71.0715, "MOD-PM-00212" = -71.081156,
+  "MOD-PM-00213" = -71.0971196, "MOD-PM-00214" = -71.087439,
+  "MOD-PM-00216" = -71.0777, "MOD-PM-00217" = -71.08866,
+  "MOD-PM-00221" = -71.071364, "MOD-PM-00222" = -71.086,
+  "MOD-PM-00224" = -71.0679, "MOD-PM-00226" = -71.0738,
+  "MOD-PM-00230" = -71.0752, "MOD-PM-00231" = -71.0780
+)
+
+# Define the site names for each sensor
+sn_siteName <- c(
+  "MOD-00024" = "ACE Parking Lot", "MOD-00025" = "Hale Elem",
+  "MOD-00026" = "The Base", "MOD-00027" = "Indigo Block",
+  "MOD-00028" = "Hibernian Playgr.", "MOD-PM-00141" = "Tobin Comm Ctr",
+  "MOD-PM-00211" = "Dudley Vil Playgr", "MOD-PM-00212" = "Dearborn Academy",
+  "MOD-PM-00213" = "Rafael Hernandez", "MOD-PM-00214" = "Trotter Elem",
+  "MOD-PM-00216" = "Orchard Gardens", "MOD-PM-00217" = "Residence Obierne Pl.",
+  "MOD-PM-00221" = "Residence Baker Ave.", "MOD-PM-00222" = "Beryl Gardens",
+  "MOD-PM-00224" = "Indigo Block", "MOD-PM-00226" = "Dudley Greenhouse",
+  "MOD-PM-00230" = "Trina Persad Playgr", "MOD-PM-00231" = "Cardinal Medeiros"
+)
+
+# Add "lat", "lon", "siteName" columns to the existing data frame
+modPM$lat <- sn_lat[modPM$sn]
+modPM$lon <- sn_lon[modPM$sn]
+modPM$siteName <- sn_siteName[modPM$sn]
+
+print(modPM)
+```
+
+```{r}
+# Combine pm1 bins
+modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
+
+# Add a formatted date column
+modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
+
+# Delete unnecessary columns
+columns_to_delete <- c(
+  "url.x", "url.y", "sn.y", "timestamp.y", "geo.lat", "geo.lon", "met.rh", "met.temp", "met.wd", "met.ws",
+  "geolat", "geolon", "metrh", "geo.xlat", "geo.xlon", "met.xrh", "met.xtemp", "nephbin0", "nephbin1",
+  "nephbin2", "nephbin3", "nephbin4", "nephbin5", "nephpm1", "nephpm10", "nephpm25", "opcbin0", "opcbin1",
+  "opcbin10", "opcbin11", "opcbin12", "opcbin13", "opcbin14", "opcbin15", "opcbin16", "opcbin17", "opcbin18",
+  "opcbin19", "opcbin2", "opcbin20", "opcbin21", "opcbin22", "opcbin23", "opcbin3", "opcbin4", "opcbin5",
+  "opcbin6", "opcbin7", "opcbin8", "opcbin9", "opcpm1", "opcpm10", "opcpm25", "opcrh", "opctemp", "geo.ylat",
+  "geo.ylon", "met.yrh", "met.ytemp"
+)
+
+modPM <- modPM %>%
+  select(-one_of(columns_to_delete))
+
+print(modPM)
+```
+
+### Meteorology Data
+
+```{r}
+# Import meteorology file
+metdata <- suppressMessages({
+  list.files(path = "./data/Metdata/",
+             pattern = "*.csv", 
+             full.names = TRUE) %>%
+    purrr::map_dfr(read.csv)
+})
+
+print(metdata)
+# Setting datetime, using correct timezone on East Coast Local time
+metdata$date <- as.POSIXct(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York")
+
+metdata <- metdata %>%
+  rename(wd = drct, ws = sped, original_met_time = valid) %>%
+  na.omit(date) %>%
+  complete(date = seq(from = min(date), to= max(date),  by = "1 min")) %>%
+  fill(c(wd, ws, tmpc)) #fill those new 1 minute interval rows
+
+metdata$ws <- metdata$ws * (1609/3600) #converting to m/s, 1609 meters per mile, 3600 seconds per hr
+metdata[,c("station")] <- list(NULL) #getting rid of unnecessary variables
+metdata <- unique(metdata) #remove duplicates
+print(metdata)
+```
+
+## DATA PROCESSING
+
+### Merging Datasets
+
+```{r}
+# Time sync and merge met and pollution data
+modPM$modPM_date_1min <- lubridate::round_date(modPM$date, unit = "minute")
+metdata$met_date_1min <- lubridate::round_date(metdata$date, unit = "minute")
+
+# Merge the two datasets
+modPM_met <- dplyr::left_join(modPM, metdata, by = c("modPM_date_1min" = "met_date_1min"))
+modPM_met$date <- modPM_met$date.x
+
+# Delete unnecessary columns
+modPM_met <- subset(modPM_met, select = -c(date.x, date.y))
+```
+
+### Cleaning Up and Save the Work Space
+
+```{r}
+# Remove all objects except the final data frame
+rm(list = setdiff(ls(), "modPM_met"))
+# Save environment to graphableData.RData
+save.image("./data/graphableData.RData")
+```
+
+### Sanity Checks
+
+```{r}
+# # Uncomment to test timeVar plots
+# # Feel free to add any additional tests
+# library(openair)
+# 
+# print(modPM_met)
+# openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+```
