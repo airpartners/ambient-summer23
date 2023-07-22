@@ -43,7 +43,7 @@ load("../data/graphableData.RData")
 Create bar graphs with each bar representing the pollutants from a single sensor
 ```{r}
 # Create a subset of the data for PM1, PM2.5, and PM10
-pm_subset <- modPM_met[, c("sn", "pm1", "pm25", "pm10", "date")]
+pm_subset <- modPM_met[, c("siteName", "pm1", "pm25", "pm10", "date")]
 
 # Convert the date column to a month format
 pm_subset$date <- as.Date(pm_subset$date)
@@ -58,7 +58,7 @@ pm_subset_long <-
     values_to = "value"
   )
 monthly_averages <- pm_subset_long %>%
-  group_by(sn, month, pollutant) %>%
+  group_by(siteName, month, pollutant) %>%
   summarise(value = mean(value))
 
 # Specify the order of pollutants in the stack
@@ -76,11 +76,11 @@ color_mapping <-
 # Function to find the maximum sum of PM1, PM2.5, and PM10 values for each month
 find_max_pollutant <- function(data) {
   max_sensors <- data %>%
-    group_by(month, sn) %>%
+    group_by(month, siteName) %>%
     summarise(sum_value = sum(value)) %>%
     group_by(month) %>%
     filter(sum_value == max(sum_value)) %>%
-    select(month, sn, sum_value)
+    select(month, siteName, sum_value)
   
   return(max_sensors)
 }
@@ -102,7 +102,7 @@ monthly_graphs <-
     max_sensor <- max_sensors$sum_value[max_sensors$month == m]
     
     # Create the bar graph
-    ggplot(month_data, aes(x = sn, y = value, fill = pollutant)) +
+    ggplot(month_data, aes(x = siteName, y = value, fill = pollutant)) +
       geom_col(position = "stack") +
       geom_text(
         aes(label = sprintf("%.2e", value)),
@@ -132,14 +132,14 @@ for (graph in monthly_graphs) {
 
 # Sum PM1, PM2.5, and PM10 per sensor by year
 yearly_sums <- pm_subset_long %>%
-  group_by(sn, year = lubridate::year(date), pollutant) %>%
+  group_by(siteName, year = lubridate::year(date), pollutant) %>%
   summarise(value = sum(value))
 
 # Calculate the maximum bar width for scaling the text size
-max_width <- max(table(yearly_sums$sn))
+max_width <- max(table(yearly_sums$siteName))
 
 # Create a graph for total PM1, PM2.5, and PM10 per sensor by year
-ggplot(yearly_sums, aes(x = sn, y = value, fill = pollutant)) +
+ggplot(yearly_sums, aes(x = siteName, y = value, fill = pollutant)) +
   geom_col(position = "stack") +
   geom_text(
     aes(label = sprintf("%.2e", value)),

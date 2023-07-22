@@ -6,7 +6,7 @@ date: "2023-07-17"
 
 [Markdown file docstrings]
 
-## INITAL SETTINGS
+## INITIAL SETTINGS
 
 ```{r setup, include=FALSE}
 # Check and install required packages if necessary
@@ -33,17 +33,17 @@ suppressPackageStartupMessages(library(maps))
 load("../data/graphableData.RData")
 
 # Calculate the average of each PM
-averagePM1 <- mean(modPM_met$pm1)
-averagePM25 <- mean(modPM_met$pm25)
-averagePM10 <- mean(modPM_met$pm10)
+averagePM1 <- mean(mod_met$pm1)
+averagePM25 <- mean(mod_met$pm25)
+averagePM10 <- mean(mod_met$pm10)
 
 # Set the threshold for significant difference
 threshold <- 2  # You can adjust this value as per your requirement
 
 # Filter out rows where the column value is significantly bigger than the average
-modPM_met_filtered <- modPM_met[modPM_met$pm1 <= averagePM1 * threshold, ]
-modPM_met_filtered <- modPM_met[modPM_met$pm25 <= averagePM25 * threshold, ]
-modPM_met_filtered <- modPM_met[modPM_met$pm10 <= averagePM10 * threshold, ]
+mod_met_filtered <- mod_met[mod_met$pm1 <= averagePM1 * threshold, ]
+mod_met_filtered <- mod_met[mod_met$pm25 <= averagePM25 * threshold, ]
+mod_met_filtered <- mod_met[mod_met$pm10 <= averagePM10 * threshold, ]
 ```
 
 ## POLAR PLOTTING
@@ -52,11 +52,11 @@ modPM_met_filtered <- modPM_met[modPM_met$pm10 <= averagePM10 * threshold, ]
 
 ```{r}
 polarMap(
-  modPM_met,
+  mod_met,
   pollutant = c("pm1", "pm25", "pm10"),
   latitude = "lat",
   longitude = "lon",
-  limits = c(0,6),
+  limits = c(0, 5),
   key = TRUE,
   provider = "OpenStreetMap")
 ```
@@ -65,11 +65,11 @@ polarMap(
 
 ```{r}
 polarMap(
-  modPM_met,
+  mod_met,
   pollutant = c("pm25"),
   latitude = "lat",
   longitude = "lon",
-  limits = c(0,8),
+  limits = c(0, 12),
   key = TRUE,
   provider = "OpenStreetMap")
 ```
@@ -78,11 +78,15 @@ polarMap(
 
 ```{r}
 polarMap(
-  modPM_met,
+  mod_met,
   pollutant = c("pm10"),
   latitude = "lat",
   longitude = "lon",
-  limits = c(0,23),
+  limits = c(5, 35),
   key = TRUE,
   provider = "OpenStreetMap")
 ```
+
+Create a map of for the average of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+
+Create a map with the average polar plots w/ of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)

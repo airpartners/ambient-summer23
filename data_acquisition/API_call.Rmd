@@ -90,7 +90,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 base_url <- "https://api.quant-aq.com/device-api/v1/devices/"
 api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
 
-# Define a time range to loop over until I find a better way
+# Define a time range to loop over (time range change)
 time_range <-
   seq(as.Date("2022-07-01"), as.Date("2023-02-28"), by = "day")
 time_range <- format(time_range, "%Y-%m-%d")

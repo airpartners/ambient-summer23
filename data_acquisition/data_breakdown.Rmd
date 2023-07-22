@@ -12,15 +12,7 @@ output: html_document
 # Check and install required packages if necessary
 packages <- c(
   "lubridate",   # Package for working with dates and times
-  "data.table",  # Package for efficient data manipulation and processing
-  "dplyr",       # Package for data manipulation and transformation
-  "openair",     # Package for analyzing air pollution data
-  "openairmaps", # Package for accessing open air pollution data
-  "stringr",     # Package for string manipulation
-  "baseline",    # Package for baseline modeling and adjustment
-  "purrr",       # Package for functional programming
-  "tidyverse",   # Meta-package for data science
-  "maps"         # Package for creating maps
+  "data.table"   # Package for efficient data manipulation and processing
 )
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
@@ -77,10 +69,7 @@ Use the following download options: `comma delimited` ,
 ### Quant-AQ Data
 
 ```{r}
-library(data.table)
-library(lubridate)
-library(fs)
-
+# Define time range (time range change)
 start_date <- ymd("2022-07-01")  # Start date of the time range
 end_date <- ymd("2023-02-28")    # End date of the time range
 
@@ -140,10 +129,7 @@ for (sensor_id in device_ids) {
 ```
 
 ```{r}
-library(data.table)
-library(lubridate)
-library(fs)
-
+# Define time range (time range change)
 start_date <- ymd("2022-07-01")  # Start date of the time range
 end_date <- ymd("2023-02-28")    # End date of the time range
 

@@ -5,13 +5,13 @@ date: "2023-07-17"
 output: html_document
 ---
 
-This document primarily focuses on importing, merging, and pre-processing the data to prepare it for further analysis.
+This document primarily focuses on importing, merging, and pre-processing the data to prepare it for further analysis. The result of
 
-Follow the **FETCHING DATA TO IMPORT** session to retrieve data for this document. Pressing `Ctrl + Alt + R` (run all) for this markdown file would results in a `graphableData.RData` file being created and saved into the data folder. This file contains the data frame `modPM_met` that can be used to graph, to visualize this data frame, simply load it and run the print function commented below:
+Follow the **FETCHING DATA TO IMPORT** session to retrieve data for this document. Pressing `Ctrl + Alt + R` (run all) for this markdown file would results in a `graphableData.RData` file being created and saved into the data folder. This file contains the data frame `mod_met` that can be used to graph, to visualize this data frame, simply load it and run the print function commented below:
 
 ```{r}
 # load("../data/graphableData.RData")
-# print(modPM_met)
+# print(mod_met)
 ```
 
 To understand and modify the below code, see the **FILE GUIDE** session below.
@@ -30,7 +30,7 @@ C. **IMPORT DATA AND PRE-PROCESSING**
 
 1.  Quant-AQ Data
 
--   Import data from .csv files by columns, clean up names, add latitude, longitude, site names, cleaned data, and store in the data frame `modPM`
+-   Import data from .csv files by columns, clean up names, add latitude, longitude, site names, cleaned data, and store in the data frame `mod`
 
 2.  Meteorology Data
 
@@ -73,59 +73,54 @@ To skip this session, go to the data folder branch of [this repository](https://
 
 ### Quant-AQ Data
 
-Refer to the Markdown file API_call.Rmd in this folder. The data should be in ./data/Quant-AQ/MOD-PM/ if nothing goes wrong.
+Refer to the Markdown file API_call.Rmd in this folder.
 
 ### Meteorology Data
 
-The meteorology data used in some analysis below are taken from the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
+The meteorology data used in our analysis is taken from [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
 
 Below are the downloading instructions taken from the [EB Gibson Park Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
 
-Select the following station: \* [BOS] BOSTON/LOGAN INTL
+-   Select the following station: \* [BOS] BOSTON/LOGAN INTL
 
-Select the following variables:
+-   Select the following variables:
 
--   Temperature (C)
+    -   Temperature (C)
 
--   Wind Direction
+    -   Wind Direction
 
--   Wind Speed [mph]
+    -   Wind Speed [mph]
 
-Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not inclusive of the last date)
+-   Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not inclusive of the last date)
 
-Select this timezone: `America/New_York`
+-   Select this timezone: `America/New_York`
 
-Use the following download options: `comma delimited` ,
+-   Use the following download options:
 
-`no latitude/longitude vectors` ,
+    -   `comma delimited`
 
-`no elevation` ,
+    -   `no latitude/longitude vectors`
 
-`represent missing data with blank string` ,
+    -   `no elevation`
 
-`denote trace with blank string`
+    -   `represent missing data with blank string`
+
+    -   `denote trace with blank string`
+
+After retrieving the data, go to `ambient-summer23/data_acquisition/data_breakdown.Rmd` and run the first and third code blocks to break the meteorology data down by monthly `.csv` files.
 
 ## IMPORT DATA AND PRE-PROCESSING
 
 ### Quant-AQ Data
 
 ```{r}
-# Specify the columns you want to read
-columns_to_read <- c(
-  "pm1", "pm25", "pm10", "co", "no", "no2", "o3", "opc.bin0",
-  "opc.bin1", "opc.bin2", "opc.bin3", "opc.bin4", "opc.bin5",
-  "opc.bin6", "opc.bin7", "opc.bin8", "opc.bin9", "opc.bin10",
-  "opc.bin11", "opc.bin12", "opc.bin13", "opc.bin14", "opc.bin15",
-  "opc.bin16", "opc.bin17", "timestamp_local", "sn.x", "timestamp.x"
-)
+# Specify the columns to read
+modPM_cols <- c("pm1", "pm25", "pm10", "opcbin0", "opcbin1", "opcbin2", "opcbin3", "opcbin4", "opcbin5", "opcbin6", "opcbin7", "opcbin8", "opcbin9", "opcbin10", "opcbin11", "opcbin12", "opcbin13", "opcbin14", "opcbin15", "opcbin16", "opcbin17", "timestamp_local", "sn.x", "timestamp.x")
 
-# Read in csv files from data folder and select specific columns
-device_ids <- c(
-  "MOD-00024",
-  "MOD-00025",
-  "MOD-00026",
-  "MOD-00027",
-  "MOD-00028",
+modulair_cols <- c("pm1", "pm25", "pm10", "co", "no", "no2", "o3", "opc.bin0", "opc.bin1", "opc.bin2", "opc.bin3", "opc.bin4", "opc.bin5", "opc.bin6", "opc.bin7", "opc.bin8", "opc.bin9", "opc.bin10","opc.bin11", "opc.bin12", "opc.bin13", "opc.bin14", "opc.bin15", "opc.bin16", "opc.bin17", "timestamp_local", "sn.x", "timestamp.x")
+
+# Read in modPM devices' data
+modPM_devices <- c(
   "MOD-PM-00141",
   "MOD-PM-00211",
   "MOD-PM-00212",
@@ -142,55 +137,104 @@ device_ids <- c(
 )
 
 modPM <- suppressMessages({
-  data <- device_ids %>%
-    map_dfr(function(sensor_id) {
+  data <- modPM_devices %>%
+    map_dfr(function(modPM_device) {
       paths <- c(
+        # Taking data from 07/2022 - 02/2023 (time range change)
         sprintf(
           "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
-          sensor_id, sensor_id, 7:12
+          modPM_device, modPM_device, 7:12
         ),
         sprintf(
           "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2023-%02d.csv",
-          sensor_id, sensor_id, 1:2
+          modPM_device, modPM_device, 1:2
         )
       )
       map_dfr(paths, function(path) {
         suppressWarnings(
           tryCatch(
-            read_csv(path, col_select = columns_to_read),
+            read_csv(path, col_select = modPM_cols),
             error = function(e) NULL
           )
         )
       })
     })
 })
+
+# Read in modulair devices' data
+modulair_devices <- c(
+  "MOD-00024",
+  "MOD-00025",
+  "MOD-00026",
+  "MOD-00027",
+  "MOD-00028"
+)
+
+modulair <- suppressMessages({
+  data <- modulair_devices %>%
+    map_dfr(function(modulair_device) {
+      paths <- c(
+        # Taking data from 07/2022 - 02/2023 (time range change)
+        sprintf(
+          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
+          modulair_device, modulair_device, 7:12
+        ),
+        sprintf(
+          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2023-%02d.csv",
+          modulair_device, modulair_device, 1:2
+        )
+      )
+      map_dfr(paths, function(path) {
+        suppressWarnings(
+          tryCatch(
+            read_csv(path, col_select = modulair_cols),
+            error = function(e) NULL
+          )
+        )
+      })
+    })
+})
+
+# Bind the 2 datasets
+mod <- bind_rows(modulair, modPM)
+print(mod)
+```
+
+```{r}
+# Merging the bins in modPM and modulair data
+for (i in 0:17) {
+  bin_name <- paste0("bin", i)
+  opc_col_name <- paste0("opc.bin", i)
+  opcbin_col_name <- paste0("opcbin", i)
+  
+  mod <- mod %>%
+    mutate(!!sym(bin_name) := ifelse(
+      !is.na(!!sym(opc_col_name)),
+      !!sym(opc_col_name),
+      !!sym(opcbin_col_name)
+    ))
+}
+
+# Print the updated data frame
+print(mod)
 ```
 
 ```{r}
 # Rename to match manually downloaded datasets
-modPM <- modPM %>%
-  rename(
-    timestamp = timestamp.x,
-    sn = sn.x,
-    bin0 = opc.bin0,
-    bin1 = opc.bin1,
-    bin2 = opc.bin2,
-    bin3 = opc.bin3,
-    bin4 = opc.bin4,
-    bin5 = opc.bin5,
-    bin6 = opc.bin6,
-    bin7 = opc.bin7,
-    bin8 = opc.bin8,
-    bin9 = opc.bin9,
-    bin10 = opc.bin10,
-    bin11 = opc.bin11,
-    bin12 = opc.bin12,
-    bin13 = opc.bin13,
-    bin14 = opc.bin14,
-    bin15 = opc.bin15,
-    bin16 = opc.bin16,
-    bin17 = opc.bin17,
-  )
+# Comment this out if it errors out because the name is already correct
+mod <- mod %>%
+  rename(timestamp = timestamp.x, sn = sn.x)
+
+# Combine pm1 bins
+mod$pm1num <- mod$bin0 + mod$bin1 + mod$bin2
+
+# Add a formatted date column
+mod$date <- as.POSIXct(strptime(mod$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
+
+mod <- mod %>%
+  select(-matches("^opc\\.bin\\d+$"), -matches("^opcbin\\d+$"))
+
+print(mod)
 ```
 
 ```{r}
@@ -232,22 +276,12 @@ sn_sitename <- c(
   "MOD-PM-00230" = "Trina Persad Playgr", "MOD-PM-00231" = "Cardinal Medeiros"
 )
 
-# Add "lat", "lon", "siteName" columns to the existing data frame
-modPM$lat <- sn_lat[modPM$sn]
-modPM$lon <- sn_lon[modPM$sn]
-modPM$sitename <- sn_sitename[modPM$sn]
+# Add "lat", "lon", "sitename" columns to the existing data frame
+mod$lat <- sn_lat[mod$sn]
+mod$lon <- sn_lon[mod$sn]
+mod$sitename <- sn_sitename[mod$sn]
 
-print(modPM)
-```
-
-```{r}
-# Combine pm1 bins
-modPM$pm1num <- modPM$bin0 + modPM$bin1 + modPM$bin2
-
-# Add a formatted date column
-modPM$date <- as.POSIXct(strptime(modPM$timestamp_local, format = "%Y-%m-%d %H:%M:%S", tz = "America/New_York"))
-
-print(modPM)
+print(mod)
 ```
 
 ### Meteorology Data
@@ -284,22 +318,22 @@ print(metdata)
 
 ```{r}
 # Time sync met and pollution data
-modPM$modPM_date_1min <- lubridate::round_date(modPM$date, unit = "minute")
+mod$mod_date_1min <- lubridate::round_date(mod$date, unit = "minute")
 metdata$met_date_1min <- lubridate::round_date(metdata$date, unit = "minute")
 
 # Merge the two datasets
-modPM_met <- dplyr::left_join(modPM, metdata, by = c("modPM_date_1min" = "met_date_1min"))
-modPM_met$date <- modPM_met$date.x
+mod_met <- dplyr::left_join(mod, metdata, by = c("mod_date_1min" = "met_date_1min"))
+mod_met$date <- mod_met$date.x
 
-# Delete unnecessary columns
-modPM_met <- subset(modPM_met, select = -c(date.x, date.y))
+# Delete unnecessary columns created from merging mod and metdata
+mod_met <- subset(mod_met, select = -c(date.x, date.y))
 ```
 
 ### Cleaning Up and Save the Work Space
 
 ```{r}
 # Remove all objects except the final data frame
-rm(list = setdiff(ls(), "modPM_met"))
+rm(list = setdiff(ls(), "mod_met"))
 # Save environment to graphableData.RData
 save.image("../data/graphableData.RData")
 ```
@@ -311,6 +345,6 @@ save.image("../data/graphableData.RData")
 # Feel free to add any additional tests
 library(openair)
 
-print(modPM_met)
-openair::timeVariation(modPM_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+print(mod_met)
+openair::timeVariation(mod_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
 ```

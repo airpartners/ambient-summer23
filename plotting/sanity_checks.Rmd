@@ -235,3 +235,26 @@ polarAnnulus(modPM_met_nz, poll = "pm10", period = "weekday", main = "Weekday")
 polarAnnulus(modPM_met_nz, poll = "pm10",period = "hour", main = "Hour")
 gc()
 ```
+
+```{r}
+# Sample data for dataset 1
+dataset1 <- data.frame(
+  Name = c("Alice", "Bob", "Charlie"),
+  Age = c(25, 30, 22),
+  Score = c(85, 92, 78)
+)
+
+# Sample data for dataset 2
+dataset2 <- data.frame(
+  Name = c("David", "Emily"),
+  Age = c(28, 27),
+  Score = c(88, 95)
+)
+
+# Combining the two datasets
+combined_dataset <- rbind(dataset1, dataset2)
+
+# Print the combined dataset
+print(combined_dataset)
+
+```
