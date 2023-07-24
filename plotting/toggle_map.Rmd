@@ -1,0 +1,152 @@
+---
+title: "Toggle Map"
+author: "Cherry Pham"
+date: "2023-07-22"
+output: html_document
+---
+
+Markdown file docstrings]
+
+## INITIAL SETTINGS
+
+```{r setup, include=FALSE}
+# Check and install required packages if necessary
+packages <- c(
+  "openair",     # Package for analyzing air pollution data
+  "openairmaps",  # Package for accessing open air pollution data
+  "leaflet",
+  "dplyr"
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## DATA LOADING AND CLEANING
+
+```{r}
+# Load data frame
+load("../data/graphableData.RData")
+```
+
+```{r}
+print(mod_met)
+```
+
+```{r}
+# Calculate the average of each PM
+averagePM1 <- mean(mod_met$pm1)
+averagePM25 <- mean(mod_met$pm25)
+averagePM10 <- mean(mod_met$pm10)
+
+# Set the threshold for significant difference
+threshold <- 2
+
+# Filter out rows where the column value is significantly bigger than the average
+mod_met_filtered <- mod_met[mod_met$pm1 <= averagePM1 * threshold, ]
+mod_met_filtered <- mod_met[mod_met$pm25 <= averagePM25 * threshold, ]
+mod_met_filtered <- mod_met[mod_met$pm10 <= averagePM10 * threshold, ]
+
+# Helper function
+subset_by_month <- function(dataset, year, month) {
+  # Check if the 'date' column exists in the dataset
+  if ("date" %in% names(dataset)) {
+    # Convert 'date' column to proper Date format (if needed)
+    if (!inherits(dataset$date, "Date")) {
+      dataset$date <- as.Date(dataset$date)
+    }
+
+    # Create a variable for the target month's start and end dates
+    start_date <- as.Date(paste(year, month, "01", sep = "-"))
+    end_date <- as.Date(paste(year, month + 1, "01", sep = "-")) - 1
+
+    # Filter data for the specified month
+    month_subset <- dataset[dataset$date >= start_date & dataset$date <= end_date, ]
+    return(month_subset)
+  }
+}
+
+# Filter the data to include only the desired time range
+mod_met_subset <- subset_by_month(mod_met, year = 2022, month = 8)
+
+# Calculate the average data for pm1, pm25, and pm10 per sensor
+average_data <- mod_met_subset %>%
+  group_by(sn) %>%
+  summarize(
+    avg_pm1 = mean(pm1),
+    avg_pm25 = mean(pm25),
+    avg_pm10 = mean(pm10),
+    lon = mean(lon),
+    lat = mean(lat)   
+  ) 
+
+# Also helper
+fill_null_with_zero <- function(df) {
+  df[is.na(df)] <- 0
+  return(df)
+}
+average_data <- fill_null_with_zero(average_data)
+```
+
+## PLOTTING
+
+### Circles indicating pollution on map
+
+Create a map of for the average of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+
+```{r}
+library(wesanderson)
+
+color_palette <-
+  wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
+
+# Create the leaflet map
+map <- leaflet(average_data) %>%
+  addTiles()
+
+# Display the map with all three layers using addLayersControl
+map_combined <- map %>%
+  addLayersControl(
+    overlayGroups = c("PM1", "PM2.5", "PM10"),
+    options = layersControlOptions(collapsed = FALSE, position = "topright")
+  ) %>%
+  addCircles(
+    lng = ~ lon,
+    lat = ~ lat,
+    fillOpacity = 0.5,
+    fillColor = color_palette[1],
+    weight = 0,
+    radius = ~ sqrt(avg_pm10) * 30,
+    popup = ~ paste("Sensor:", sn, "<br>PM10:", round(avg_pm10, 2)),
+    group = "PM10"
+  ) %>%
+  addCircles(
+    lng = ~ lon,
+    lat = ~ lat,
+    fillOpacity = 0.7,
+    fillColor = color_palette[3],
+    weight = 0,
+    radius = ~ sqrt(avg_pm25) * 30,
+    popup = ~ paste("Sensor:", sn, "<br>PM2.5:", round(avg_pm25, 2)),
+    group = "PM2.5"
+  ) %>%
+  addCircles(
+    lng = ~ lon,
+    lat = ~ lat,
+    fillOpacity = 0.9,
+    fillColor = color_palette[2],
+    weight = 0,
+    radius = ~ sqrt(avg_pm1) * 30,
+    popup = ~ paste("Sensor:", sn, "<br>PM1:", round(avg_pm1, 2)),
+    group = "PM1"
+  )
+
+print(map_combined)
+```
