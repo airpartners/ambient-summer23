@@ -45,44 +45,66 @@ print(mod_met)
 Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
 
 ```{r}
+# Convert the 'date' column to a proper datetime object
+mod_met$date <- ymd_hms(mod_met$date)
 
-# Extract the month information from the date
-mod_met$month <- month(mod_met$date, label = TRUE)
+# Extract the date part from the datetime strings
+mod_met$day <- as.Date(mod_met$date)
 
-# Create a new data frame with summarized information
-summary_data <- mod_met %>%
-  mutate(
-    air_quality_category = ifelse(pm1 < 1, "Good", ifelse(pm1 < 6, "Medium", "Bad"))
+# Group by date and sensor, calculate daily averages, and keep one row per day per sensor
+modmet_daily <- mod_met %>%
+  group_by(day, sn) %>%
+  summarize(
+    pm1_avg = mean(pm1),
+    pm25_avg = mean(pm25),
+    pm10_avg = mean(pm10),
+    .groups = "drop"
   ) %>%
-  group_by(month, sn, air_quality_category) %>%
-  summarise(number_of_days = n()) %>%
-  ungroup()
+  group_by(day) %>%
+  slice(1)  # Keep only one row per day
 
-# Reorder the months in chronological order
-summary_data$month <- fct_reorder(
-  summary_data$month,
-  as.numeric(summary_data$month),
-  .desc = FALSE
-)
+print(modmet_daily)
+```
 
-# Create the stacked bar graphs
-ggplot(summary_data,
-       aes(x = month,
-           y = number_of_days,
-           fill = air_quality_category)) +
-  geom_bar(stat = "identity",
-           position = position_stack(vjust = 0.5),
-           width = 0.7) +
-  facet_wrap(~ sn, ncol = 2, scales = "free", labeller = label_wrap_gen(width = 10)) +
-  labs(title = "Number of Days with Good, Medium, and Bad Air Quality",
-       x = "Months",
-       y = "Number of Days") +
-  scale_fill_manual(values = c("Bad" = "red", "Medium" = "orange", "Good" = "green")) +
-  theme_minimal() +
-  theme(axis.text.y = element_text(angle = 0, hjust = 0.5),
-        plot.margin = unit(c(1, 1, 1, 1), "cm"))
+```{r}
+# Categorize the days based on pm1_avg values into "Good," "Medium," and "Bad"
+modmet_daily <- modmet_daily %>%
+  mutate(pm1_category = case_when(
+    pm1_avg < 1 ~ "Good",
+    pm1_avg >= 1 & pm1_avg < 6 ~ "Medium",
+    pm1_avg >= 6 ~ "Bad",
+    TRUE ~ NA_character_
+  ))
 
-# Save the plot
-ggsave("plot.png", width = 10, height = 20)
+# Set the order of levels for the "pm1_category" variable
+modmet_daily$pm1_category <- factor(modmet_daily$pm1_category, levels = c("Bad", "Medium", "Good"))
 
+# Extract the month from the 'day' column
+modmet_daily$month <- month(modmet_daily$day, label = TRUE)
+
+# Iterate over each unique sensor (sn) value
+unique_sensors <- unique(modmet_daily$sn)
+
+for (sensor in unique_sensors) {
+  # Filter data for the current sensor
+  data_for_sensor <- modmet_daily %>% filter(sn == sensor)
+  
+  # Calculate the count of each category per month
+  data_for_sensor_counts <- data_for_sensor %>%
+    group_by(month, pm1_category) %>%
+    tally(name = "count")
+  
+  # Create a stacked bar graph
+  p <- ggplot(data_for_sensor_counts, aes(x = month, y = count, fill = pm1_category)) +
+    geom_bar(stat = "identity", width=0.5) +
+    ylim(0, 30) +
+    labs(x = "Month", y = "Number of Days", title = paste("Air Quality Summary for Sensor", sensor)) +
+    # Adjust the colors in the 'scale_fill_manual()' function to match the new order
+    scale_fill_manual(values = c("Bad" = "red", "Medium" = "orange", "Good" = "green")) +
+    theme_minimal()
+  
+  # Save the plot as a JPG file
+  jpg_filename <- paste("../figures/aq_ratings/aq-", sensor, ".jpg", sep = "")
+  ggsave(filename = jpg_filename, plot = p, width = 10, height = 6)
+}
 ```
