@@ -1,10 +1,10 @@
 ---
 title: "Polar Plots"
-output: html_document
 date: "2023-07-17"
+output: html_document
 ---
 
-[Markdown file docstrings]
+This file generates PM1, PM2.5, and PM10 polar plots on a map showing to each sensor's location and the corresponding pollution readings
 
 ## INITIAL SETTINGS
 
@@ -12,7 +12,9 @@ date: "2023-07-17"
 # Check and install required packages if necessary
 packages <- c(
   "openair",     # Package for analyzing air pollution data
-  "openairmaps"  # Package for accessing open air pollution data
+  "openairmaps",  # Package for accessing open air pollution data
+  "leaflet",
+  "dplyr"
 )
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
@@ -38,12 +40,17 @@ averagePM25 <- mean(mod_met$pm25)
 averagePM10 <- mean(mod_met$pm10)
 
 # Set the threshold for significant difference
-threshold <- 2  # You can adjust this value as per your requirement
+threshold <- 2
 
 # Filter out rows where the column value is significantly bigger than the average
 mod_met_filtered <- mod_met[mod_met$pm1 <= averagePM1 * threshold, ]
 mod_met_filtered <- mod_met[mod_met$pm25 <= averagePM25 * threshold, ]
 mod_met_filtered <- mod_met[mod_met$pm10 <= averagePM10 * threshold, ]
+
+# Filter the data to include only the desired time range
+start_date <- as.Date("2022-07-01")
+end_date <- as.Date("2023-02-28")
+mod_met_filtered <- mod_met[mod_met$date >= start_date & mod_met$date <= end_date, ]
 ```
 
 ## POLAR PLOTTING
@@ -52,8 +59,8 @@ mod_met_filtered <- mod_met[mod_met$pm10 <= averagePM10 * threshold, ]
 
 ```{r}
 polarMap(
-  mod_met,
-  pollutant = c("pm1", "pm25", "pm10"),
+  mod_met_filtered,
+  pollutant = c("pm1"),
   latitude = "lat",
   longitude = "lon",
   limits = c(0, 5),
@@ -65,7 +72,7 @@ polarMap(
 
 ```{r}
 polarMap(
-  mod_met,
+  mod_met_filtered,
   pollutant = c("pm25"),
   latitude = "lat",
   longitude = "lon",
@@ -78,7 +85,7 @@ polarMap(
 
 ```{r}
 polarMap(
-  mod_met,
+  mod_met_filtered,
   pollutant = c("pm10"),
   latitude = "lat",
   longitude = "lon",
@@ -87,6 +94,17 @@ polarMap(
   provider = "OpenStreetMap")
 ```
 
-Create a map of for the average of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+### Plotting all PMs Polar Plots
 
-Create a map with the average polar plots w/ of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
+Create a map with the average polar plots w/ of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, *hourly*)
+
+```{r}
+polarMap(
+  mod_met_filtered,
+  pollutant = c("pm1", "pm25", "pm10"),
+  latitude = "lat",
+  longitude = "lon",
+  normalize = TRUE,
+  key = TRUE,
+  provider = "OpenStreetMap")
+```
