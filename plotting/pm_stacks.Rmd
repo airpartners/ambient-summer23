@@ -15,7 +15,8 @@ packages <- c(
   "lubridate",   # Package for working with dates and times
   "dplyr",       # Package for data manipulation and transformation
   "tidyverse",   # Meta-package for data science
-  "wesanderson"
+  "wesanderson",
+  "svglite"
 )
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
@@ -36,14 +37,18 @@ suppressPackageStartupMessages(library(maps))
 load("../data/graphableData.RData")
 ```
 
-## PLOTTING
-
-### F4 - POLLUTION PER SENSOR (PM STACKS)
+## PLOTTING POLLUTION PER SENSOR
 
 Create bar graphs with each bar representing the pollutants from a single sensor
+
 ```{r}
+# Function to save a plot as SVG
+save_plot_as_svg <- function(plot, filename) {
+  ggsave(plot, filename = filename, device = "svg", width = 10, height = 6)
+}
+
 # Create a subset of the data for PM1, PM2.5, and PM10
-pm_subset <- modPM_met[, c("siteName", "pm1", "pm25", "pm10", "date")]
+pm_subset <- mod_met[, c("sitename", "pm1", "pm25", "pm10", "date")]
 
 # Convert the date column to a month format
 pm_subset$date <- as.Date(pm_subset$date)
@@ -58,7 +63,7 @@ pm_subset_long <-
     values_to = "value"
   )
 monthly_averages <- pm_subset_long %>%
-  group_by(siteName, month, pollutant) %>%
+  group_by(sitename, month, pollutant) %>%
   summarise(value = mean(value))
 
 # Specify the order of pollutants in the stack
@@ -76,11 +81,11 @@ color_mapping <-
 # Function to find the maximum sum of PM1, PM2.5, and PM10 values for each month
 find_max_pollutant <- function(data) {
   max_sensors <- data %>%
-    group_by(month, siteName) %>%
+    group_by(month, sitename) %>%
     summarise(sum_value = sum(value)) %>%
     group_by(month) %>%
     filter(sum_value == max(sum_value)) %>%
-    select(month, siteName, sum_value)
+    select(month, sitename, sum_value)
   
   return(max_sensors)
 }
@@ -102,7 +107,7 @@ monthly_graphs <-
     max_sensor <- max_sensors$sum_value[max_sensors$month == m]
     
     # Create the bar graph
-    ggplot(month_data, aes(x = siteName, y = value, fill = pollutant)) +
+    ggplot(month_data, aes(x = sitename, y = value, fill = pollutant)) +
       geom_col(position = "stack") +
       geom_text(
         aes(label = sprintf("%.2e", value)),
@@ -130,16 +135,22 @@ for (graph in monthly_graphs) {
   print(graph)
 }
 
+# Save the monthly graphs as SVG files
+for (i in seq_along(monthly_graphs)) {
+  filename <- paste0("../figures/monthly_graph_", i, ".svg")
+  save_plot_as_svg(monthly_graphs[[i]], filename)
+}
+
 # Sum PM1, PM2.5, and PM10 per sensor by year
 yearly_sums <- pm_subset_long %>%
-  group_by(siteName, year = lubridate::year(date), pollutant) %>%
+  group_by(sitename, year = lubridate::year(date), pollutant) %>%
   summarise(value = sum(value))
 
 # Calculate the maximum bar width for scaling the text size
-max_width <- max(table(yearly_sums$siteName))
+max_width <- max(table(yearly_sums$sitename))
 
 # Create a graph for total PM1, PM2.5, and PM10 per sensor by year
-ggplot(yearly_sums, aes(x = siteName, y = value, fill = pollutant)) +
+total_plot <- ggplot(yearly_sums, aes(x = sitename, y = value, fill = pollutant)) +
   geom_col(position = "stack") +
   geom_text(
     aes(label = sprintf("%.2e", value)),
@@ -161,4 +172,8 @@ ggplot(yearly_sums, aes(x = siteName, y = value, fill = pollutant)) +
     breaks = c("pm1", "pm25", "pm10"),
     guide = guide_legend(reverse = FALSE)
   )
+```
+
+```{r}
+save_plot_as_svg(total_plot, "../figures/total_pollutant_levels.svg")
 ```

@@ -1,0 +1,88 @@
+---
+title: "AQ Ratings"
+author: "Cherry Pham"
+date: "2023-07-22"
+output: html_document
+---
+
+[Markdown file docstrings]
+
+## INITIAL SETTINGS
+
+```{r setup, include=FALSE}
+# Check and install required packages if necessary
+packages <- c(
+  "ggplot2", 
+  "dplyr",
+  "lubridate",
+  "forcats"
+)
+install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
+
+# Load required packages for data manipulation and analysis
+invisible(sapply(packages, library, character.only = TRUE))
+
+# Set options
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
+suppressPackageStartupMessages(library(maps))
+```
+
+## DATA LOADING AND CLEANING
+
+```{r}
+# Load data frame
+load("../data/graphableData.RData")
+```
+
+```{r}
+print(mod_met)
+```
+
+## PLOTTING
+
+Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
+
+```{r}
+
+# Extract the month information from the date
+mod_met$month <- month(mod_met$date, label = TRUE)
+
+# Create a new data frame with summarized information
+summary_data <- mod_met %>%
+  mutate(
+    air_quality_category = ifelse(pm1 < 1, "Good", ifelse(pm1 < 6, "Medium", "Bad"))
+  ) %>%
+  group_by(month, sn, air_quality_category) %>%
+  summarise(number_of_days = n()) %>%
+  ungroup()
+
+# Reorder the months in chronological order
+summary_data$month <- fct_reorder(
+  summary_data$month,
+  as.numeric(summary_data$month),
+  .desc = FALSE
+)
+
+# Create the stacked bar graphs
+ggplot(summary_data,
+       aes(x = month,
+           y = number_of_days,
+           fill = air_quality_category)) +
+  geom_bar(stat = "identity",
+           position = position_stack(vjust = 0.5),
+           width = 0.7) +
+  facet_wrap(~ sn, ncol = 2, scales = "free", labeller = label_wrap_gen(width = 10)) +
+  labs(title = "Number of Days with Good, Medium, and Bad Air Quality",
+       x = "Months",
+       y = "Number of Days") +
+  scale_fill_manual(values = c("Bad" = "red", "Medium" = "orange", "Good" = "green")) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))
+
+# Save the plot
+ggsave("plot.png", width = 10, height = 20)
+
+```
