@@ -43,8 +43,8 @@ Create bar graphs with each bar representing the pollutants from a single sensor
 
 ```{r}
 # Function to save a plot as SVG
-save_plot_as_svg <- function(plot, filename) {
-  ggsave(plot, filename = filename, device = "svg", width = 10, height = 6)
+save_plot_as_jpg <- function(plot, filename) {
+  ggsave(plot, filename = filename, device = "jpg", width = 10, height = 6)
 }
 
 # Create a subset of the data for PM1, PM2.5, and PM10
@@ -62,13 +62,14 @@ pm_subset_long <-
     names_to = "pollutant",
     values_to = "value"
   )
-monthly_averages <- pm_subset_long %>%
-  group_by(sitename, month, pollutant) %>%
-  summarise(value = mean(value))
 
 # Specify the order of pollutants in the stack
 pm_subset_long$pollutant <-
   factor(pm_subset_long$pollutant, levels = c("pm1", "pm25", "pm10"))
+
+monthly_averages <- pm_subset_long %>%
+  group_by(sitename, month, pollutant) %>%
+  summarise(value = mean(value))
 
 # Assign colors to each pollutant
 color_palette <-
@@ -135,10 +136,10 @@ for (graph in monthly_graphs) {
   print(graph)
 }
 
-# Save the monthly graphs as SVG files
+# Save the monthly graphs as jpg files
 for (i in seq_along(monthly_graphs)) {
-  filename <- paste0("../figures/monthly_graph_", i, ".svg")
-  save_plot_as_svg(monthly_graphs[[i]], filename)
+  filename <- paste0("../figures/pm_stacks/monthly_graph_", i, ".jpg")
+  save_plot_as_jpg(monthly_graphs[[i]], filename)
 }
 
 # Sum PM1, PM2.5, and PM10 per sensor by year
@@ -172,8 +173,5 @@ total_plot <- ggplot(yearly_sums, aes(x = sitename, y = value, fill = pollutant)
     breaks = c("pm1", "pm25", "pm10"),
     guide = guide_legend(reverse = FALSE)
   )
-```
-
-```{r}
-save_plot_as_svg(total_plot, "../figures/total_pollutant_levels.svg")
+save_plot_as_jpg(total_plot, "../figures/pm_stacks/total_pollutant_levels.jpg")
 ```

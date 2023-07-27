@@ -5,7 +5,7 @@ date: "2023-07-22"
 output: html_document
 ---
 
-Markdown file docstrings]
+This file creates maps using the leaflet function and add data in representative circles.
 
 ## INITIAL SETTINGS
 
@@ -102,51 +102,85 @@ average_data <- fill_null_with_zero(average_data)
 Create a map of for the average of each pollution values (PM1, PM2.5, PM10) over certain periods of time (all time, monthly, daily, hourly)
 
 ```{r}
-library(wesanderson)
+# library(wesanderson)
+# 
+# color_palette <-
+#   wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
+# 
+# # Create the leaflet map
+# map <- leaflet(average_data) %>%
+#   addTiles()
+# 
+# # Display the map with all three layers using addLayersControl
+# map_combined <- map %>%
+#   addLayersControl(
+#     overlayGroups = c("PM1", "PM2.5", "PM10"),
+#     options = layersControlOptions(collapsed = FALSE, position = "topright")
+#   ) %>%
+#   addCircles(
+#     lng = ~ lon,
+#     lat = ~ lat,
+#     fillOpacity = 0.5,
+#     fillColor = color_palette[1],
+#     weight = 0,
+#     radius = ~ sqrt(avg_pm10) * 30,
+#     popup = ~ paste("Sensor:", sn, "<br>PM10:", round(avg_pm10, 2)),
+#     group = "PM10"
+#   ) %>%
+#   addCircles(
+#     lng = ~ lon,
+#     lat = ~ lat,
+#     fillOpacity = 0.7,
+#     fillColor = color_palette[3],
+#     weight = 0,
+#     radius = ~ sqrt(avg_pm25) * 30,
+#     popup = ~ paste("Sensor:", sn, "<br>PM2.5:", round(avg_pm25, 2)),
+#     group = "PM2.5"
+#   ) %>%
+#   addCircles(
+#     lng = ~ lon,
+#     lat = ~ lat,
+#     fillOpacity = 0.9,
+#     fillColor = color_palette[2],
+#     weight = 0,
+#     radius = ~ sqrt(avg_pm1) * 30,
+#     popup = ~ paste("Sensor:", sn, "<br>PM1:", round(avg_pm1, 2)),
+#     group = "PM1"
+#   )
+# 
+# print(map_combined)
+```
 
-color_palette <-
-  wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
+### Circles indicating heat on map
+
+Create a map of for the average of each temperature values over certain periods of time (monthly, weekly, daily)
+
+```{r}
+# Filter the data to include only the desired time range
+mod_met_subset <- subset_by_month(mod_met, year = 2022, month = 8)
+
+# Calculate the average data for pm1, pm25, and pm10 per sensor
+mod_met_temp <- mod_met_subset %>%
+  group_by(sn) %>%
+  summarize(
+    avg_temp = mean(tmpc),
+    lon = mean(lon),
+    lat = mean(lat)   
+  ) 
 
 # Create the leaflet map
-map <- leaflet(average_data) %>%
+map <- leaflet(mod_met_temp) %>%
   addTiles()
 
 # Display the map with all three layers using addLayersControl
 map_combined <- map %>%
-  addLayersControl(
-    overlayGroups = c("PM1", "PM2.5", "PM10"),
-    options = layersControlOptions(collapsed = FALSE, position = "topright")
-  ) %>%
-  addCircles(
-    lng = ~ lon,
-    lat = ~ lat,
-    fillOpacity = 0.5,
-    fillColor = color_palette[1],
-    weight = 0,
-    radius = ~ sqrt(avg_pm10) * 30,
-    popup = ~ paste("Sensor:", sn, "<br>PM10:", round(avg_pm10, 2)),
-    group = "PM10"
-  ) %>%
   addCircles(
     lng = ~ lon,
     lat = ~ lat,
     fillOpacity = 0.7,
-    fillColor = color_palette[3],
+    fillColor = "orange",
     weight = 0,
-    radius = ~ sqrt(avg_pm25) * 30,
-    popup = ~ paste("Sensor:", sn, "<br>PM2.5:", round(avg_pm25, 2)),
-    group = "PM2.5"
-  ) %>%
-  addCircles(
-    lng = ~ lon,
-    lat = ~ lat,
-    fillOpacity = 0.9,
-    fillColor = color_palette[2],
-    weight = 0,
-    radius = ~ sqrt(avg_pm1) * 30,
-    popup = ~ paste("Sensor:", sn, "<br>PM1:", round(avg_pm1, 2)),
-    group = "PM1"
+    radius = ~ sqrt(avg_temp) * 30
   )
-
 print(map_combined)
 ```
