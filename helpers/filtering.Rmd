@@ -39,8 +39,8 @@ mod_met_pm10 <- mod_met[, c("date", "sn", "pm10", "ws", "wd")]
 
 # Filter the data to include only the desired time range
 Sys.setenv(TZ = "America/New_York")
-start_date <- as.Date("2022-07-01")
-end_date <- as.Date("2023-02-28")
+start_date <- as.Date("2022-12-23")
+end_date <- as.Date("2022-12-24")
 mod_met_filtered <- mod_met_pm10[mod_met_pm10$date >= start_date & mod_met_pm10$date <= end_date, ]
 
 print(mod_met_filtered)
@@ -64,7 +64,8 @@ for (sensor in sensors) {
     main = paste("Sensor:", sensor),
     avg.time = "hour",
     y.relation = "same",
-    ylim = c(0, 500)
+    ylim = c(0, 150),
+    windflow = list(col = "grey", lwd= 2, scale = 0.1)
   )
 }
 ```
@@ -75,8 +76,6 @@ pm10_hourly <- mod_met_filtered %>%
   mutate(date = as.POSIXct(date)) %>%
   group_by(sn, hour = lubridate::floor_date(date, unit = "hour")) %>%
   summarise(pm10_avg = mean(pm10, na.rm = TRUE))
-
-# Step 2: Remove NaN values
 pm10_hourly <- pm10_hourly %>%
   filter(!is.nan(pm10_avg))
 
@@ -88,87 +87,49 @@ for (sensor in unique_sensors) {
   peaks <- findpeaks(sensor_data$pm10_avg, threshold = 50)
   peaks_list[[paste0("peaks_", sensor)]] <- peaks[, 1:2]
 }
-# Create an empty data frame to store the histogram data
-histogram_data <-
-  data.frame(date = as.POSIXct(character()), count = integer())
-timestamp_dict <- list()
 
-# Step 4: Loop through pm10_hourly per sensor and update histogram_data
-unique_sensors <- unique(pm10_hourly$sn)
-# Create an empty data frame to store the results
-result_df <- data.frame(timestamp = character(), occurrences = integer(), stringsAsFactors = FALSE)
+# Step 3: Traverse pm10_hourly by sensor and create histogram_data
+histogram_data <- data.frame(date = character(), count = integer())
 
 for (sensor in unique_sensors) {
-  print(sensor)
-  # Get the corresponding peaks array
-  peaks_array <- peaks_list[[paste0("peaks_", sensor)]]
-  
-  # Get the peak indices
-  peak_indices <- peaks_array[, 2]
-  
-  # Get the dates corresponding to the peak indices
-  peak_dates <- pm10_hourly$hour[peak_indices]
-  
-  # Count the occurrences of each timestamp
-  timestamp_counts <- table(peak_dates)
-  
-  # Append the results to the data frame
-  result_df <- rbind(result_df, data.frame(timestamp = names(timestamp_counts), occurrences = as.integer(timestamp_counts)))
+  peaks_array_name <- paste0("peaks_", sensor)
+  peaks <- peaks_list[[peaks_array_name]]
+
+  pm10_data <- subset(pm10_hourly, sn == sensor)
+  peak_dates <- pm10_data$hour[peaks[, 2]]
+  peak_dates <- as.Date(peak_dates)
+  peak_dates <- na.omit(peak_dates)
+
+  for (peak_date in peak_dates) {
+    if (peak_date %in% histogram_data$date) {
+      histogram_data$count[histogram_data$date == peak_date] <-
+        histogram_data$count[histogram_data$date == peak_date] + 1
+    } else {
+      histogram_data <-
+        rbind(histogram_data, data.frame(date = peak_date, count = 1))
+    }
+  }
 }
 
-# Print the results in the desired format
-cat("Timestamp: Occurrences\n")
-for (i in seq_len(nrow(result_df))) {
-  cat(paste(result_df$timestamp[i], ": ", result_df$occurrences[i], "\n", sep = ""))
-}
+# Filter histogram_data to only include counts greater than 1
+histogram_data <- histogram_data %>%
+  filter(count > 1)
 
-# for (sensor in unique_sensors) {
-#   print(sensor)
-#   # Get the corresponding peaks array
-#   peaks_array <- peaks_list[[paste0("peaks_", sensor)]]
-#   
-#   # Get the peak indices
-#   peak_indices <- peaks_array[, 2]
-#   
-#   # Get the dates corresponding to the peak indices
-#   peak_dates <- pm10_hourly$hour[peak_indices]
-#   print(peak_dates)
-#   # posixct_array_common <-
-#   #   force_tz(peak_dates, tzone = "UTC")
-#   # print(posixct_array_common)
-#   
-#   # Loop through peak_dates
-#   for (date in peak_dates) {
-#     # print(as.character(date))
-#     # Check if the date exists in histogram_data
-#     if (!(date %in% histogram_data$date)) {
-#       # If the date does not exist, add a new row to histogram_data
-#       histogram_data <-
-#         rbind(histogram_data, data.frame(date = date, count = 1))
-#     } else {
-#       # If the date exists, increment the count by 1
-#       histogram_data$count[histogram_data$date == date] <-
-#         histogram_data$count[histogram_data$date == date] + 1
-#     }
-#   }
-# }
-# 
-# # Step 5: Sort the histogram_data dataframe by date
-# histogram_data <- histogram_data[order(histogram_data$date), ]
-# 
-# # Step 6: Visualize the resulting histogram_data dataframe
-# print(histogram_data)
-# 
-# # ggplot(histogram_data, aes(x = date_formatted, y = count)) +
-# #   geom_bar(stat = "identity", fill = "#D48FF2", width = 0.7) +
-# #   labs(
-# #     x = "Day",
-# #     y = "Number of Sensors",
-# #     title = "Number of Sensors with PM10 Data Peaks per Day"
-# #   ) +
-# #   scale_y_continuous(breaks = 1:10) +
-# #   theme_minimal() +
-# #   theme(
-# #     axis.text.x = element_text(angle = 90, hjust = 1),
-# #     text = element_text(family = "Helvetica"))
+# Convert date to "YYYY-MM-DD" format in a new column
+histogram_data$date <- as.Date(histogram_data$date)  # Convert to actual date objects
+
+# View the resulting histogram_data
+print(histogram_data)
+
+ggplot(histogram_data, aes(x = as.character(date), y = count)) +
+  geom_bar(stat = "identity", fill = "#D48FF2", width = 0.7) +
+  labs(
+    x = "Day",
+    y = "Number of Sensors",
+    title = "Number of Sensors with PM10 Data Peaks per Day"
+  ) +
+  scale_y_continuous(breaks = 1:30) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+    text = element_text(family = "Helvetica"))
 ```
