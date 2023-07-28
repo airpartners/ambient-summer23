@@ -3,23 +3,34 @@ title: "Data Breakdown"
 author: "Cherry Pham"
 date: "2023-07-10"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
-[Markdown file docstrings]
 
-## INITAL SETTINGS
+This Markdown file is created to break existing .csv files into monthly
+files.
+
+Currently, this file is made to breakdown **Meteorology data**
+downloaded from the Iowa Environmental Mesonet and **Quant-AQ data**
+retrieved using `API_call.Rmd`. See the **FETCHING DATA TO IMPORT**
+session in this file for more details. As a side note, you want to, you
+can also rewrite `API_call.Rmd` to not merge monthly files.
+
+## PACKAGES AND INITAL SETTINGS
 
 ```{r}
 # Check and install required packages if necessary
-packages <- c(
-  "lubridate",   # Package for working with dates and times
-  "data.table"   # Package for efficient data manipulation and processing
-)
+packages <- c("lubridate", "data.table")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages for data manipulation and analysis
 invisible(sapply(packages, library, character.only = TRUE))
 
-# Set options
+# Import helper function
+source("data_breakdown_helpers.R")
+
+# Set knit options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
@@ -28,17 +39,24 @@ suppressPackageStartupMessages(library(maps))
 
 ## FETCHING DATA TO IMPORT
 
-To skip this session, go to the data folder branch of [this repository](https://github.com/airpartners/ambient-summer23/tree/datafolder) to download a pre-made data folder. If you want to modify data/download data for yourself, refer to the below instructions within this session.
+To skip this session, go to the data folder branch of [this
+repository](https://github.com/airpartners/ambient-summer23/tree/datafolder)
+to download a pre-made data folder. If you want to modify data/download
+data for yourself, refer to the below instructions within this session.
 
 ### Quant-AQ Data
 
-Refer to the Markdown file API_call.Rmd in this folder. The data should be in ./data/Quant-AQ/MOD-PM/ if nothing goes wrong.
+Refer to the Markdown file API_call.Rmd in this folder. The data should
+be in ./data/Quant-AQ/MOD-PM/ if nothing goes wrong.
 
 ### Meteorology Data
 
-The meteorology data used in some analysis below are taken from the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
+The meteorology data used in some analysis below are taken from the
+[Iowa Environmental
+Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
 
-Below are the downloading instructions taken from the [EB Gibson Park Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
+Below are the downloading instructions taken from the [EB Gibson Park
+Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
 
 Select the following station: \* [BOS] BOSTON/LOGAN INTL
 
@@ -50,7 +68,8 @@ Select the following variables:
 
 -   Wind Speed [mph]
 
-Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not inclusive of the last date)
+Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not
+inclusive of the last date)
 
 Select this timezone: `America/New_York`
 
@@ -66,42 +85,20 @@ Use the following download options: `comma delimited` ,
 
 ## IMPORT DATA AND PRE-PROCESSING
 
+Change the time range if you only want to break down data from a
+specific time range (to optimize speed). `Ctrl + F` the following: (time
+range change). Make sure that the helper file `data_breakdown_helpers.R`
+is in this folder and the cell in `PACKAGES AND INITIAL SETTINGS` is
+ran.
+
 ### Quant-AQ Data
 
 ```{r}
 # Define time range (time range change)
-start_date <- ymd("2022-07-01")  # Start date of the time range
-end_date <- ymd("2023-02-28")    # End date of the time range
+start_date <- ymd("2022-07-01")
+end_date <- ymd("2023-02-28")
 
-process_sensor <- function(sensor_id) {
-  file_name <- paste0("./data/Quant-AQ/MOD-PM/", sensor_id, ".csv")
-  output_folder <- paste0("./data/Quant-AQ/MOD-PM/broken-down/", sensor_id)
-  dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
-  
-  # Read the CSV file into a data.table, handle parsing errors
-  tryCatch({
-    data <- fread(file_name, data.table = FALSE)
-  }, error = function(e) {
-    message("Error reading ", file_name, ": ", conditionMessage(e))
-    return()
-  })
-  
-  # Convert timestamp_local column to datetime
-  data$timestamp_local <- ymd_hms(data$timestamp_local)
-  
-  # Filter data within the specified time range
-  filtered_data <- data[data$timestamp_local >= start_date & data$timestamp_local <= end_date, ]
-  
-  # Create a separate CSV file for each month
-  monthly_data <- split(filtered_data, format(filtered_data$timestamp_local, "%Y-%m"))
-  
-  for (month in names(monthly_data)) {
-    month_data <- monthly_data[[month]]
-    month_file_path <- file.path(output_folder, paste0(sensor_id, "-", month, ".csv"))
-    write.csv(month_data, month_file_path, row.names = FALSE)
-  }
-}
-
+# Define a list of device IDs
 device_ids <- c(
   "MOD-00024",
   "MOD-00025",
@@ -124,44 +121,37 @@ device_ids <- c(
 )
 
 for (sensor_id in device_ids) {
-  process_sensor(sensor_id)
+  # Define file paths
+  file_name <- paste0("./data/Quant-AQ/MOD-PM/", sensor_id, ".csv")
+  output_folder <-
+    paste0("./data/Quant-AQ/MOD-PM/broken-down/", sensor_id)
+  # Load data
+  data <- load_csv_data(file_name, output_folder)
+  # Convert timestamp_local column to datetime
+  data$timestamp_local <- ymd_hms(data$timestamp_local)
+  name <- sensor_id
+  # Breakdown csv
+  breakdown_csv(data, name, start_date, end_date)
 }
 ```
 
+### Meteorology Data
+
 ```{r}
 # Define time range (time range change)
-start_date <- ymd("2022-07-01")  # Start date of the time range
-end_date <- ymd("2023-02-28")    # End date of the time range
+start_date <- ymd("2022-07-01")
+end_date <- ymd("2023-02-28")
 
+# Define file paths
 file_name <- "./data/metdata.csv"
 output_folder <- "./data/Metdata/"
-dir.create(output_folder, showWarnings = FALSE)
 
-# Read the CSV file into a data.table, handle parsing errors
-tryCatch({
-  data <- fread(file_name, data.table = FALSE)
-}, error = function(e) {
-  message("Error reading ", file_name, ": ", conditionMessage(e))
-  return()
-})
-
-# Parse the date-time format explicitly
+# Load data
+data <- load_csv_data(file_name, output_folder)
+# Convert valid (time) column to datetime
 data$valid <- parse_date_time(data$valid, orders = "ymd HMS", truncated = 6)
-
-# Filter data within the specified time range
-filtered_data <-
-  data[data$valid >= start_date &
-         data$valid <= end_date,]
-
-# Create a separate CSV file for each month
-monthly_data <-
-  split(filtered_data,
-        format(filtered_data$valid, "%Y-%m"))
-
-for (month in names(monthly_data)) {
-  month_data <- monthly_data[[month]]
-  month_file_path <-
-    file.path(output_folder, paste0("metdata-", month, ".csv"))
-  write.csv(month_data, month_file_path, row.names = FALSE)
-}
+colnames(data)[valid] <- "timestamp_local" # Name change to fit with function
+name <- "metdata"
+# Breakdown csv
+breakdown_csv(data, name, start_date, end_date)
 ```

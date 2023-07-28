@@ -3,46 +3,69 @@ title: "Data Processing"
 author: "Cherry Pham"
 date: "2023-07-17"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
-This document primarily focuses on importing, merging, and pre-processing the data to prepare it for further analysis. The result of
+This document primarily focuses on importing, merging, and
+pre-processing the data to prepare it for further analysis. The result
+of this function is a data frame containing sensor data that you can use
+for plotting.
 
-Follow the **FETCHING DATA TO IMPORT** session to retrieve data for this document. Pressing `Ctrl + Alt + R` (run all) for this markdown file would results in a `graphableData.RData` file being created and saved into the data folder. This file contains the data frame `mod_met` that can be used to graph, to visualize this data frame, simply load it and run the print function commented below:
+Follow the **FETCHING DATA TO IMPORT** session to retrieve the data
+required to use this document. Pressing `Ctrl + Alt + R` (run all) for
+this markdown file would results in a `graphableData.RData` file being
+created and saved into the data folder. This file contains the data
+frame `mod_met` that can be used to graph, to visualize this data frame,
+simply load it and run the print function commented below:
 
 ```{r}
 # load("../data/graphableData.RData")
 # print(mod_met)
 ```
 
-To understand and modify the below code, see the **FILE GUIDE** session below.
+To understand and modify the below code, see the **FILE GUIDE** session
+below.
 
 ## FILE GUIDE
 
 A. **INITIAL SETTINGS**
 
--   Required R packages are installed and loaded. Warnings during package loading are suppressed.
+-   Install and load required R packages and set knit options
 
 B. **FETCHING DATA TO IMPORT**
 
--   As stated before, in order to run this markdown file, you need a few file pre-requisites fulfilled. The instructions to retrieve them is found in this session.
+-   As stated before, in order to run this markdown file, you need a few
+    file pre-requisites fulfilled. The instructions to retrieve them is
+    found in this session.
 
 C. **IMPORT DATA AND PRE-PROCESSING**
 
 1.  Quant-AQ Data
 
--   Import data from .csv files by columns, clean up names, add latitude, longitude, site names, cleaned data, and store in the data frame `mod`
+-   Import data from .csv files by columns, clean up names, add
+    latitude, longitude, site names, cleaned data, and store in the data
+    frame `mod`
+-   `Ctrl + F` "(time range change)" to change the date range of the
+    files to read. There are 2 separate occurrences - for modPM and
+    modulair.
 
 2.  Meteorology Data
 
--   Import data from all .csv files in the `Metdata` folder, clean data, and store in the data frame `metdata`
+-   Import data from all .csv files in the `Metdata` folder, clean data,
+    and store in the data frame `metdata`
 
 D. **DATA PROCESSING**
 
-1.  Merging Datasets: Time sync and merge the Quant-AQ and Meteorology datasets
+1.  Merging Datasets: Time sync and merge the Quant-AQ and Meteorology
+    datasets
 
-2.  Cleaning Up and Save the Work Space: I think the name is pretty descriptive
+2.  Cleaning Up and Save the Work Space: I think the name is pretty
+    descriptive
 
-3.  Sanity Checks: Optional commented out code that you can use to test if the code above is working correctly
+3.  Sanity Checks: Optional commented out code that you can use to test
+    if the code above is working correctly
 
 ## INITAL SETTINGS
 
@@ -62,14 +85,14 @@ invisible(sapply(packages, library, character.only = TRUE))
 
 # Set options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-
-# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
-suppressPackageStartupMessages(library(maps))
 ```
 
 ## FETCHING DATA TO IMPORT
 
-To skip this session, go to the data folder branch of [this repository](https://github.com/airpartners/ambient-summer23/tree/datafolder) to download a pre-made data folder. If you want to modify data/download data for yourself, refer to the below instructions within this session.
+To skip this session, go to the data folder branch of [this
+repository](https://github.com/airpartners/ambient-summer23/tree/datafolder)
+to download a pre-made data folder. If you want to modify data/download
+data for yourself, refer to the below instructions within this session.
 
 ### Quant-AQ Data
 
@@ -77,9 +100,12 @@ Refer to the Markdown file API_call.Rmd in this folder.
 
 ### Meteorology Data
 
-The meteorology data used in our analysis is taken from [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
+The meteorology data used in our analysis is taken from [Iowa
+Environmental
+Mesonet](https://mesonet.agron.iastate.edu/request/download.phtml?network=MA_ASOS).
 
-Below are the downloading instructions taken from the [EB Gibson Park Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
+Below are the downloading instructions taken from the [EB Gibson Park
+Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Park%20Analysis.Rmd).
 
 -   Select the following station: \* [BOS] BOSTON/LOGAN INTL
 
@@ -91,7 +117,8 @@ Below are the downloading instructions taken from the [EB Gibson Park Analysis](
 
     -   Wind Speed [mph]
 
--   Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not inclusive of the last date)
+-   Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not
+    inclusive of the last date)
 
 -   Select this timezone: `America/New_York`
 
@@ -107,7 +134,10 @@ Below are the downloading instructions taken from the [EB Gibson Park Analysis](
 
     -   `denote trace with blank string`
 
-After retrieving the data, go to `ambient-summer23/data_acquisition/data_breakdown.Rmd` and run the first and third code blocks to break the meteorology data down by monthly `.csv` files.
+After retrieving the data, go to
+`ambient-summer23/data_acquisition/data_breakdown.Rmd` and run the first
+and third code blocks to break the meteorology data down by monthly
+`.csv` files.
 
 ## IMPORT DATA AND PRE-PROCESSING
 
@@ -225,7 +255,7 @@ print(mod)
 mod <- mod %>%
   rename(timestamp = timestamp.x, sn = sn.x)
 
-# Combine pm1 bins
+# Combine PM1 bins
 mod$pm1num <- mod$bin0 + mod$bin1 + mod$bin2
 
 # Add a formatted date column
@@ -296,6 +326,7 @@ metdata <- suppressMessages({
 })
 
 print(metdata)
+
 # Setting datetime, using correct timezone on East Coast Local time
 metdata$date <- as.POSIXct(metdata$valid, format = "%Y-%m-%d %H:%M", tz = "America/New_York")
 
@@ -334,6 +365,7 @@ mod_met <- subset(mod_met, select = -c(date.x, date.y))
 ```{r}
 # Remove all objects except the final data frame
 rm(list = setdiff(ls(), "mod_met"))
+
 # Save environment to graphableData.RData
 save.image("../data/graphableData.RData")
 ```

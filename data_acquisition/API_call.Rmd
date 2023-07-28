@@ -14,19 +14,12 @@ from Quant-AQ through API calls.
 There is no prerequisites for using this file. If you are just looking
 to quickly retrieve data, you can simply run this file through the
 command `Ctrl + Alt + R`. The result of running this file is a data
-folder containing data of MOD-PM sensors as of February 2023. If you
-wish to modify the data to be retrieved, please read the data guide
-below.
+folder containing data of MOD-PM sensors as of February 2023. Press
+`Ctrl + F` and find `(time range change)` to modify the time range to
+retrieve data. If you wish to modify the data to be retrieved, please
+read the data guide below.
 
 ## DATA GUIDE
-
-You can find a pre-made data set created using this API call document in
-[this
-branch](https://github.com/airpartners/ambient-summer23/tree/datafolder)
-of the [ambient
-repository](https://github.com/airpartners/ambient-summer23). Below is a
-brief explanation of the code for any modification regarding data
-retrieving.
 
 A. **PACKAGES AND INITIAL SETTINGS**
 
@@ -80,7 +73,7 @@ dplyr::as_data_frame
 dplyr::filter
 dplyr::lag
 
-# Set options
+# Set knit options and working directory
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
@@ -88,7 +81,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 ```{r}
 base_url <- "https://api.quant-aq.com/device-api/v1/devices/"
-api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7"
+api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7" # Cherry's API Key
 
 # Define a time range to loop over (time range change)
 time_range <-
@@ -121,135 +114,16 @@ device_ids <- c(
 ## RETTRIEVING DATA INTO FOLDERS
 
 ```{r}
+# Import helper function(s)
+# Make sure that process_device_id.R is in this folder
+source("process_device_id.R")
+
 # Create folder if not initiated
 data_folder_path <- "./data/Quant-AQ/MOD-PM/"
 
-# Check if the folder exists
+# Check if the folder exists and create the folder if it doesn't exist
 if (!file.exists(data_folder_path)) {
-  # Create the folder if it doesn't exist
   dir.create(data_folder_path, recursive = TRUE)
-}
-
-# Function to process a single device ID
-process_device_id <- function(device_id) {
-  # Initialize empty sensor data frame
-  merged_data_per_sensor <- data.frame()
-  for (date in time_range) {
-    # Print device id and date in console
-    cat(paste0("\n", device_id, ": ", date))
-    # Initialize empty daily data frames
-    raw_df <- data.frame()
-    final_df <- data.frame()
-    merged_data_per_day <- data.frame()
-    for (state in c("raw/", "")) {
-      # Construct device URL for API call
-      device_url <-
-        paste0(device_id, "/data-by-date/", state, date, "/")
-      # Send GET request
-      raw_data <- GET(
-        url = paste0(base_url, device_url),
-        authenticate(api_key, "", type = "basic"),
-        encoding = "UTF-8"
-      )
-      
-      # Option 1: Simply ignore the faulty API responses
-      # Option 2 in commit <1af8a62915811ba44d4f7e4b2cc6eab7c97240c1> gives
-      # you detailed errors
-      if (status_code(raw_data) != 200) {
-        cat(" Error API return !200")
-        return()
-      }
-      
-      data <- content(raw_data, as = "text", encoding = "UTF-8")
-      parsed_data <- fromJSON(data)
-      
-      # Check if the data is empty or has zero rows
-      if (is.null(parsed_data) ||
-          is.null(parsed_data$data) ||
-          length(parsed_data$data) == 0) {
-        # Skip processing if the data is empty
-        cat(" Empty data")
-        next
-      }
-      
-      # Save raw and final data accordingly
-      if (state == "raw/") {
-        raw_df <- as.data.frame(parsed_data$data)
-      } else {
-        final_df <- as.data.frame(parsed_data$data)
-      }
-    }
-    
-    # Skip processing if the merged data is empty or has zero rows
-    if (is.null(raw_df) || nrow(raw_df) == 0) {
-      merged_data_per_day <- final_df
-      cat(" Empty raw data")
-    }
-    else if (is.null(final_df) || nrow(final_df) == 0) {
-      merged_data_per_day <- raw_df
-      cat(" Empty final data")
-    }
-    # Merge raw and final data
-    else {
-      merged_data_per_day <-
-        merge(raw_df, final_df, by = "timestamp_local")
-    }
-    cat(" -- DONE PER DAY")
-    
-    # Skip processing if the merged data is empty or has zero rows
-    if (is.null(merged_data_per_day) ||
-        nrow(merged_data_per_day) == 0) {
-      cat("(empty day data)")
-      next
-    }
-    
-    # Initialize flag to track nested status
-    is_nested <- TRUE
-    
-    # Flatten any nested dataframes
-    while (is_nested) {
-      # Check if the data frame is nested
-      is_nested <-
-        any(sapply(merged_data_per_day, function(x)
-          is.list(x) || is.data.frame(x)))
-      # Flatten any nested data frames
-      if (is_nested) {
-        cols_to_unnest <-
-          names(merged_data_per_day)[sapply(merged_data_per_day, is.data.frame)]
-        # Unnest with duplicate handling strategy
-        merged_data_per_day <-
-          unnest_wider(
-            merged_data_per_day,
-            cols_to_unnest,
-            names_repair = "unique",
-            names_sep = ""
-          )
-      }
-      else {
-        break
-      }
-    }
-    # Merge data per day to bigger df
-    merged_data_per_sensor <-
-      rbind(merged_data_per_sensor, merged_data_per_day)
-  }
-  
-  # Save data to CSV file
-  csv_file_path <-
-    file.path(data_folder_path, paste0(device_id, ".csv"))
-  
-  # Try writing the CSV file and handle errors
-  tryCatch({
-    write.csv(merged_data_per_sensor, file = csv_file_path)
-  },
-  error = function(e) {
-    cat(
-      paste0("Error writing CSV file for ", device_id, "\n"),
-      file = "error_log.txt",
-      append = TRUE
-    )
-  })
-  cat(paste0("\n-- DONE PER SENSOR ", device_id, " --"))
 }
 
 # Process each device ID over time range
