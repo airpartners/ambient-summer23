@@ -16,9 +16,11 @@ for plotting.
 Follow the **FETCHING DATA TO IMPORT** session to retrieve the data
 required to use this document. Pressing `Ctrl + Alt + R` (run all) for
 this markdown file would results in a `graphableData.RData` file being
-created and saved into the data folder. This file contains the data
-frame `mod_met` that can be used to graph, to visualize this data frame,
-simply load it and run the print function commented below:
+created and saved into the data folder.
+
+This file contains the data frame `mod_met` that can be used to graph,
+to visualize this data frame, simply load it by running the print
+function commented below:
 
 ```{r}
 # load("../data/graphableData.RData")
@@ -71,13 +73,7 @@ D. **DATA PROCESSING**
 
 ```{r setup, include=FALSE}
 # Check and install required packages if necessary
-packages <- c(
-  "lubridate",   # Package for working with dates and times
-  "dplyr",       # Package for data manipulation and transformation
-  "purrr",       # Package for functional programming
-  "tidyverse",   # Meta-package for data science
-  "readr"
-)
+packages <- c("lubridate", "dplyr", "purrr", "tidyverse", "readr")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages for data manipulation and analysis
@@ -89,14 +85,18 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 ## FETCHING DATA TO IMPORT
 
-To skip this session, go to the data folder branch of [this
+In order for this markdown file to function, you need all your Quant-AQ
+and Meteorology data downloaded as csv. This data should also be already
+broken down into monthly csv files for both cases. To skip this session
+(or this entire data acquisition step), go to the data folder branch of
+[this
 repository](https://github.com/airpartners/ambient-summer23/tree/datafolder)
 to download a pre-made data folder. If you want to modify data/download
 data for yourself, refer to the below instructions within this session.
 
 ### Quant-AQ Data
 
-Refer to the Markdown file API_call.Rmd in this folder.
+Refer to the Markdown file `API_call.Rmd` in this folder.
 
 ### Meteorology Data
 
@@ -373,10 +373,10 @@ save.image("../data/graphableData.RData")
 ### Sanity Checks
 
 ```{r}
-# Uncomment to test timeVar plots
-# Feel free to add any additional tests
-library(openair)
-
-print(mod_met)
-openair::timeVariation(mod_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+# # Uncomment to test timeVar plots
+# # Feel free to add any additional tests
+# library(openair)
+# 
+# print(mod_met)
+# openair::timeVariation(mod_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
 ```

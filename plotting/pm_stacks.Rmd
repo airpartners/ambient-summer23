@@ -3,21 +3,23 @@ title: "PM Stacks"
 author: "Cherry Pham"
 date: "2023-07-20"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
-[Markdown file docstrings]
+This Markdown file plots the average pollutant levels by sensor per
+month and the total pollution levels for the year.
+
+The resulting figures are saved in `ambient-summer23/figures/pm_stacks/`
+and can also be visualized below. Simply press `Ctrl + Alt + R` to run
+all and get the figures.
 
 ## INITAL SETTINGS
 
 ```{r setup, include=FALSE}
 # Check and install required packages if necessary
-packages <- c(
-  "lubridate",   # Package for working with dates and times
-  "dplyr",       # Package for data manipulation and transformation
-  "tidyverse",   # Meta-package for data science
-  "wesanderson",
-  "svglite"
-)
+packages <- c("lubridate", "dplyr", "tidyverse", "wesanderson", "svglite")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages for data manipulation and analysis
@@ -25,9 +27,6 @@ invisible(sapply(packages, library, character.only = TRUE))
 
 # Set options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-
-# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
-suppressPackageStartupMessages(library(maps))
 ```
 
 ## DATA LOADING AND CLEANING
@@ -39,7 +38,8 @@ load("../data/graphableData.RData")
 
 ## PLOTTING POLLUTION PER SENSOR
 
-Create bar graphs with each bar representing the pollutants from a single sensor
+Create bar graphs with each bar representing the pollutants from a
+single sensor
 
 ```{r}
 # Function to save a plot as SVG
@@ -92,7 +92,7 @@ find_max_pollutant <- function(data) {
 }
 
 # Find the sensor with the maximum sum of PM1, PM2.5, and PM10 values
-# for each month
+  # for each month
 max_sensors <- find_max_pollutant(monthly_averages)
 
 # Find the overall maximum value for y-axis scaling

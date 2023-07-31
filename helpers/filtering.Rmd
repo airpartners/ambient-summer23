@@ -3,17 +3,20 @@ title: "Filtering"
 author: "Cherry Pham"
 date: "2023-07-25"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
+
+This Markdown file is created to detect and filter regional events that
+affect 5 or more sensors since we are only interested in pollution local
+to Roxbury.
+
+## PACKAGES AND INITAL SETTINGS
 
 ```{r setup, include=FALSE}
 # Check and install required packages if necessary
-packages <- c(
-  "openair",
-  "ggplot2",
-  "dplyr",
-  "pracma",
-  "lubridate"
-)
+packages <- c("openair", "ggplot2", "dplyr", "pracma", "lubridate")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages for data manipulation and analysis
@@ -21,42 +24,45 @@ invisible(sapply(packages, library, character.only = TRUE))
 
 # Set options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-
-# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
-suppressPackageStartupMessages(library(maps))
 ```
+
+## IMPORT DATA AND PRE-PROCESSING
 
 ```{r}
 # Load data frame
 load("../data/graphableData.RData")
 ```
 
-### PM10
+## PM10 FILTRATION
+
+### Sub-df we're working with
+
+Rerun this every time you work with a different group of PM
 
 ```{r}
 # Create sub-df to reduce temp memory usage
 mod_met_pm10 <- mod_met[, c("date", "sn", "pm10", "ws", "wd")]
 
-# Filter the data to include only the desired time range
+# Filter the data to include only the desired time range (time range change)
+# I'm using this to zoom in and out of the x-axis, PLS go ahead and change it
+  # if you found a better way
 Sys.setenv(TZ = "America/New_York")
-start_date <- as.Date("2022-12-23")
-end_date <- as.Date("2022-12-24")
+start_date <- as.Date("2022-07-01")
+end_date <- as.Date("2023-02-28")
 mod_met_filtered <- mod_met_pm10[mod_met_pm10$date >= start_date & mod_met_pm10$date <= end_date, ]
 
 print(mod_met_filtered)
 ```
 
+### Time-plotting
+
 ```{r}
 # Get a vector of unique sensors in the dataframe
 sensors <- unique(mod_met_filtered$sn)
 
-# # Loop through each sensor and generate the plots
+# Loop through each sensor and generate the plots
 for (sensor in sensors) {
   sensor_data <- subset(mod_met_filtered, sn == sensor)
-
-  # Convert the date column to a POSIXct object (if it's not already)
-  sensor_data$date <- as.POSIXct(sensor_data$date)
-
   p <- timePlot(
     sensor_data,
     pollutant = "pm10",
@@ -64,11 +70,22 @@ for (sensor in sensors) {
     main = paste("Sensor:", sensor),
     avg.time = "hour",
     y.relation = "same",
-    ylim = c(0, 150),
+    ylim = c(0, 300),
+    # Comment this out if you don't want the wind arrows
+    # Also remember to take out the comma above
     windflow = list(col = "grey", lwd= 2, scale = 0.1)
   )
 }
 ```
+
+### Histogram of common spikes
+
+The resulting histogram shows the days that 2 or more sensors have a
+PM10 reading of more than 35 µg/m³ at the same hour. You can take this
+information to go back and zoom into the time plots for that day to
+evaluate the event of the spikes. There's also a [Google
+Slides](https://docs.google.com/presentation/d/1TezTllpU_WAIBqaCEc90N8ZDP2sowta_BSxPWVJcZx4/edit?usp=sharing)
+documenting a couple of these events.
 
 ```{r}
 # Step 1: Create a dataset pm10_hourly that averages data in mod_met_filtered by the hour
@@ -76,15 +93,15 @@ pm10_hourly <- mod_met_filtered %>%
   mutate(date = as.POSIXct(date)) %>%
   group_by(sn, hour = lubridate::floor_date(date, unit = "hour")) %>%
   summarise(pm10_avg = mean(pm10, na.rm = TRUE))
-pm10_hourly <- pm10_hourly %>%
-  filter(!is.nan(pm10_avg))
+pm10_hourly <- pm10_hourly %>% filter(!is.nan(pm10_avg))
 
 # Step 2: Find peaks in pm10_hourly$pm10 for each sensor and save the result into an array
 peaks_list <- list()
 unique_sensors <- unique(pm10_hourly$sn)
 for (sensor in unique_sensors) {
   sensor_data <- subset(pm10_hourly, sn == sensor)
-  peaks <- findpeaks(sensor_data$pm10_avg, threshold = 50)
+  # Change PM10 threshold here
+  peaks <- findpeaks(sensor_data$pm10_avg, threshold = 35)
   peaks_list[[paste0("peaks_", sensor)]] <- peaks[, 1:2]
 }
 
@@ -94,12 +111,15 @@ histogram_data <- data.frame(date = character(), count = integer())
 for (sensor in unique_sensors) {
   peaks_array_name <- paste0("peaks_", sensor)
   peaks <- peaks_list[[peaks_array_name]]
-
   pm10_data <- subset(pm10_hourly, sn == sensor)
-  peak_dates <- pm10_data$hour[peaks[, 2]]
+  if (is.vector(peaks)) {
+    peak_dates <- pm25_data$hour[peaks[2]]
+  }
+  else {
+    peak_dates <- pm25_data$hour[peaks[, 2]]
+  }
   peak_dates <- as.Date(peak_dates)
   peak_dates <- na.omit(peak_dates)
-
   for (peak_date in peak_dates) {
     if (peak_date %in% histogram_data$date) {
       histogram_data$count[histogram_data$date == peak_date] <-
@@ -115,18 +135,259 @@ for (sensor in unique_sensors) {
 histogram_data <- histogram_data %>%
   filter(count > 1)
 
-# Convert date to "YYYY-MM-DD" format in a new column
-histogram_data$date <- as.Date(histogram_data$date)  # Convert to actual date objects
-
-# View the resulting histogram_data
+# Convert to actual date objects and view the resulting histogram_data
+histogram_data$date <- as.Date(histogram_data$date)  
 print(histogram_data)
 
+# Plot the histogram
 ggplot(histogram_data, aes(x = as.character(date), y = count)) +
   geom_bar(stat = "identity", fill = "#D48FF2", width = 0.7) +
   labs(
     x = "Day",
     y = "Number of Sensors",
     title = "Number of Sensors with PM10 Data Peaks per Day"
+  ) +
+  scale_y_continuous(breaks = 1:30) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+    text = element_text(family = "Helvetica"))
+```
+
+## PM25 FILTRATION
+
+Same thing as the PM10 except it's PM2.5
+
+### Sub-df we're working with
+
+Rerun this every time you work with a different group of PM
+
+```{r}
+# Create sub-df to reduce temp memory usage
+mod_met_pm25 <- mod_met[, c("date", "sn", "pm25", "ws", "wd")]
+
+# Filter the data to include only the desired time range (time range change)
+# I'm using this to zoom in and out of the x-axis, PLS go ahead and change it
+  # if you found a better way
+Sys.setenv(TZ = "America/New_York")
+start_date <- as.Date("2022-07-01")
+end_date <- as.Date("2023-02-28")
+mod_met_filtered <- mod_met_pm25[mod_met_pm25$date >= start_date & mod_met_pm25$date <= end_date, ]
+
+print(mod_met_filtered)
+```
+
+### Time-plotting
+
+```{r}
+# Get a vector of unique sensors in the dataframe
+sensors <- unique(mod_met_filtered$sn)
+
+# Loop through each sensor and generate the plots
+for (sensor in sensors) {
+  sensor_data <- subset(mod_met_filtered, sn == sensor)
+  p <- timePlot(
+    sensor_data,
+    pollutant = "pm25",
+    ylab = "pm25 (µg/m³)",
+    main = paste("Sensor:", sensor),
+    avg.time = "hour",
+    y.relation = "same",
+    ylim = c(0, 150),
+    # Comment this out if you don't want the wind arrows
+    # Also remember to take out the comma above
+    windflow = list(col = "grey", lwd= 2, scale = 0.1)
+  )
+}
+```
+
+### Histogram of common spikes
+
+The resulting histogram shows the days that 2 or more sensors have a
+PM2.5 reading of more than 13 µg/m³ at the same hour. You can take this
+information to go back and zoom into the time plots for that day to
+evaluate the event of the spikes. There's also a [Google
+Slides](https://docs.google.com/presentation/d/1TezTllpU_WAIBqaCEc90N8ZDP2sowta_BSxPWVJcZx4/edit?usp=sharing)
+documenting a couple of these events.
+
+```{r}
+# Step 1: Create a dataset pm10_hourly that averages data in mod_met_filtered by the hour
+pm25_hourly <- mod_met_filtered %>%
+  mutate(date = as.POSIXct(date)) %>%
+  group_by(sn, hour = lubridate::floor_date(date, unit = "hour")) %>%
+  summarise(pm25_avg = mean(pm25, na.rm = TRUE))
+pm25_hourly <- pm25_hourly %>% filter(!is.nan(pm25_avg))
+
+# Step 2: Find peaks in pm25_hourly$pm25 for each sensor and save the result into an array
+peaks_list <- list()
+unique_sensors <- unique(pm25_hourly$sn)
+for (sensor in unique_sensors) {
+  sensor_data <- subset(pm25_hourly, sn == sensor)
+  # Change PM25 threshold here
+  peaks <- findpeaks(sensor_data$pm25_avg, threshold = 13)
+  peaks_list[[paste0("peaks_", sensor)]] <- peaks[, 1:2]
+}
+
+# Step 3: Traverse pm25_hourly by sensor and create histogram_data
+histogram_data <- data.frame(date = character(), count = integer())
+
+for (sensor in unique_sensors) {
+  peaks_array_name <- paste0("peaks_", sensor)
+  peaks <- peaks_list[[peaks_array_name]]
+  pm25_data <- subset(pm25_hourly, sn == sensor)
+  if (is.vector(peaks)) {
+    peak_dates <- pm25_data$hour[peaks[2]]
+  }
+  else {
+    peak_dates <- pm25_data$hour[peaks[, 2]]
+  }
+  peak_dates <- as.Date(peak_dates)
+  peak_dates <- na.omit(peak_dates)
+  for (peak_date in peak_dates) {
+    if (peak_date %in% histogram_data$date) {
+      histogram_data$count[histogram_data$date == peak_date] <-
+        histogram_data$count[histogram_data$date == peak_date] + 1
+    } else {
+      histogram_data <-
+        rbind(histogram_data, data.frame(date = peak_date, count = 1))
+    }
+  }
+}
+
+# Filter histogram_data to only include counts greater than 1
+histogram_data <- histogram_data %>%
+  filter(count > 1)
+
+# Convert to actual date objects and view the resulting histogram_data
+histogram_data$date <- as.Date(histogram_data$date)  
+print(histogram_data)
+
+# Plot the histogram
+ggplot(histogram_data, aes(x = as.character(date), y = count)) +
+  geom_bar(stat = "identity", fill = "#D48FF2", width = 0.7) +
+  labs(
+    x = "Day",
+    y = "Number of Sensors",
+    title = "Number of Sensors with PM2.5 Data Peaks per Day"
+  ) +
+  scale_y_continuous(breaks = 1:30) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+    text = element_text(family = "Helvetica"))
+```
+
+## PM1 FILTRATION
+
+### Sub-df we're working with
+
+Rerun this every time you work with a different group of PM
+
+```{r}
+# Create sub-df to reduce temp memory usage
+mod_met_pm1 <- mod_met[, c("date", "sn", "pm1", "ws", "wd")]
+
+# Filter the data to include only the desired time range (time range change)
+# I'm using this to zoom in and out of the x-axis, PLS go ahead and change it
+  # if you found a better way
+Sys.setenv(TZ = "America/New_York")
+start_date <- as.Date("2022-07-01")
+end_date <- as.Date("2023-02-28")
+mod_met_filtered <- mod_met_pm1[mod_met_pm1$date >= start_date & mod_met_pm1$date <= end_date, ]
+
+print(mod_met_filtered)
+```
+
+### Time-plotting
+
+```{r}
+# Get a vector of unique sensors in the dataframe
+sensors <- unique(mod_met_filtered$sn)
+
+# Loop through each sensor and generate the plots
+for (sensor in sensors) {
+  sensor_data <- subset(mod_met_filtered, sn == sensor)
+  p <- timePlot(
+    sensor_data,
+    pollutant = "pm1",
+    ylab = "pm1 (µg/m³)",
+    main = paste("Sensor:", sensor),
+    avg.time = "hour",
+    y.relation = "same",
+    ylim = c(0, 50),
+    # Comment this out if you don't want the wind arrows
+    # Also remember to take out the comma above
+    windflow = list(col = "grey", lwd= 2, scale = 0.1)
+  )
+}
+```
+
+### Histogram of common spikes
+
+The resulting histogram shows the days that 2 or more sensors have a PM1
+reading of more than 6 µg/m³ at the same hour. You can take this
+information to go back and zoom into the time plots for that day to
+evaluate the event of the spikes. There's also a [Google
+Slides](https://docs.google.com/presentation/d/1TezTllpU_WAIBqaCEc90N8ZDP2sowta_BSxPWVJcZx4/edit?usp=sharing)
+documenting a couple of these events.
+
+```{r}
+# Step 1: Create a dataset pm10_hourly that averages data in mod_met_filtered by the hour
+pm1_hourly <- mod_met_filtered %>%
+  mutate(date = as.POSIXct(date)) %>%
+  group_by(sn, hour = lubridate::floor_date(date, unit = "hour")) %>%
+  summarise(pm1_avg = mean(pm1, na.rm = TRUE))
+pm1_hourly <- pm1_hourly %>% filter(!is.nan(pm1_avg))
+
+# Step 2: Find peaks in pm1_hourly$pm1 for each sensor and save the result into an array
+peaks_list <- list()
+unique_sensors <- unique(pm1_hourly$sn)
+for (sensor in unique_sensors) {
+  sensor_data <- subset(pm1_hourly, sn == sensor)
+  # Change PM1 threshold here
+  peaks <- findpeaks(sensor_data$pm1_avg, threshold = 6)
+  peaks_list[[paste0("peaks_", sensor)]] <- peaks[, 1:2]
+}
+
+# Step 3: Traverse pm1_hourly by sensor and create histogram_data
+histogram_data <- data.frame(date = character(), count = integer())
+
+for (sensor in unique_sensors) {
+  peaks_array_name <- paste0("peaks_", sensor)
+  peaks <- peaks_list[[peaks_array_name]]
+  pm1_data <- subset(pm1_hourly, sn == sensor)
+  if (is.vector(peaks)) {
+    peak_dates <- pm1_data$hour[peaks[2]]
+  }
+  else {
+    peak_dates <- pm1_data$hour[peaks[, 2]]
+  }
+  peak_dates <- as.Date(peak_dates)
+  peak_dates <- na.omit(peak_dates)
+  for (peak_date in peak_dates) {
+    if (peak_date %in% histogram_data$date) {
+      histogram_data$count[histogram_data$date == peak_date] <-
+        histogram_data$count[histogram_data$date == peak_date] + 1
+    } else {
+      histogram_data <-
+        rbind(histogram_data, data.frame(date = peak_date, count = 1))
+    }
+  }
+}
+
+# Filter histogram_data to only include counts greater than 1
+histogram_data <- histogram_data %>%
+  filter(count > 1)
+
+# Convert to actual date objects and view the resulting histogram_data
+histogram_data$date <- as.Date(histogram_data$date)  
+print(histogram_data)
+
+# Plot the histogram
+ggplot(histogram_data, aes(x = as.character(date), y = count)) +
+  geom_bar(stat = "identity", fill = "#D48FF2", width = 0.7) +
+  labs(
+    x = "Day",
+    y = "Number of Sensors",
+    title = "Number of Sensors with PM1 Data Peaks per Day"
   ) +
   scale_y_continuous(breaks = 1:30) +
   theme_minimal() +

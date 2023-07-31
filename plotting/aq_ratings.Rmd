@@ -3,20 +3,21 @@ title: "AQ Ratings"
 author: "Cherry Pham"
 date: "2023-07-22"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
-[Markdown file docstrings]
+This Markdown file plots the number of good/medium/bad air quality days
+per sensor per month. The resulting figures are saved in
+`ambient-summer23/figures/aq_ratings/`. Simply press `Ctrl + Alt + R` to
+run all and get the figures.
 
 ## INITIAL SETTINGS
 
 ```{r setup, include=FALSE}
 # Check and install required packages if necessary
-packages <- c(
-  "ggplot2", 
-  "dplyr",
-  "lubridate",
-  "forcats"
-)
+packages <- c("ggplot2", "dplyr", "lubridate")
 install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages for data manipulation and analysis
@@ -24,9 +25,6 @@ invisible(sapply(packages, library, character.only = TRUE))
 
 # Set options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-
-# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
-suppressPackageStartupMessages(library(maps))
 ```
 
 ## DATA LOADING AND CLEANING
@@ -42,7 +40,9 @@ print(mod_met)
 
 ## PLOTTING
 
-Create a bar graph, where vertical axis is number of days in each month, horizontal axis is months, and the bars are stacked for number of days with good, medium and bad air quality for each sensor.
+Create a bar graph, where vertical axis is number of days in each month,
+horizontal axis is months, and the bars are stacked for number of days
+with good, medium and bad air quality for each sensor.
 
 ```{r}
 # Convert the 'date' column to a proper datetime object
@@ -69,15 +69,18 @@ print(modmet_daily)
 ```{r}
 # Categorize the days based on pm1_avg values into "Good," "Medium," and "Bad"
 modmet_daily <- modmet_daily %>%
-  mutate(pm1_category = case_when(
-    pm1_avg < 1 ~ "Good",
-    pm1_avg >= 1 & pm1_avg < 6 ~ "Medium",
-    pm1_avg >= 6 ~ "Bad",
-    TRUE ~ NA_character_
-  ))
+  mutate(
+    pm1_category = case_when(
+      pm1_avg < 1 ~ "Good",
+      pm1_avg >= 1 & pm1_avg < 6 ~ "Medium",
+      pm1_avg >= 6 ~ "Bad",
+      TRUE ~ NA_character_
+    )
+  )
 
 # Set the order of levels for the "pm1_category" variable
-modmet_daily$pm1_category <- factor(modmet_daily$pm1_category, levels = c("Bad", "Medium", "Good"))
+modmet_daily$pm1_category <-
+  factor(modmet_daily$pm1_category, levels = c("Bad", "Medium", "Good"))
 
 # Extract the month from the 'day' column
 modmet_daily$month <- month(modmet_daily$day, label = TRUE)
@@ -95,16 +98,32 @@ for (sensor in unique_sensors) {
     tally(name = "count")
   
   # Create a stacked bar graph
-  p <- ggplot(data_for_sensor_counts, aes(x = month, y = count, fill = pm1_category)) +
-    geom_bar(stat = "identity", width=0.5) +
+  p <-
+    ggplot(data_for_sensor_counts,
+           aes(x = month, y = count, fill = pm1_category)) +
+    geom_bar(stat = "identity", width = 0.5) +
     ylim(0, 30) +
-    labs(x = "Month", y = "Number of Days", title = paste("Air Quality Summary for Sensor", sensor)) +
+    labs(
+      x = "Month",
+      y = "Number of Days",
+      title = paste("Air Quality Summary for Sensor", sensor)
+    ) +
     # Adjust the colors in the 'scale_fill_manual()' function to match the new order
-    scale_fill_manual(values = c("Bad" = "red", "Medium" = "orange", "Good" = "green")) +
+    scale_fill_manual(values = c(
+      "Bad" = "red",
+      "Medium" = "orange",
+      "Good" = "green"
+    )) +
     theme_minimal()
   
   # Save the plot as a JPG file
-  jpg_filename <- paste("../figures/aq_ratings/aq-", sensor, ".jpg", sep = "")
-  ggsave(filename = jpg_filename, plot = p, width = 10, height = 6)
+  jpg_filename <-
+    paste("../figures/aq_ratings/aq-", sensor, ".jpg", sep = "")
+  ggsave(
+    filename = jpg_filename,
+    plot = p,
+    width = 10,
+    height = 6
+  )
 }
 ```

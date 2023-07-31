@@ -32,22 +32,20 @@ source("data_breakdown_helpers.R")
 
 # Set knit options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-
-# Suppress Warnings (This is a me thing, comment this session out to see the conflicting functions)
-suppressPackageStartupMessages(library(maps))
 ```
 
 ## FETCHING DATA TO IMPORT
 
-To skip this session, go to the data folder branch of [this
-repository](https://github.com/airpartners/ambient-summer23/tree/datafolder)
+In order for this markdown file to function, you need all your Quant-AQ
+and Meteorology data downloaded as csv. To skip this session
+(or this entire data acquisition step), go to the data folder branch of
+[this repository](https://github.com/airpartners/ambient-summer23/tree/datafolder)
 to download a pre-made data folder. If you want to modify data/download
 data for yourself, refer to the below instructions within this session.
 
 ### Quant-AQ Data
 
-Refer to the Markdown file API_call.Rmd in this folder. The data should
-be in ./data/Quant-AQ/MOD-PM/ if nothing goes wrong.
+Refer to the Markdown file `API_call.Rmd` in this folder.
 
 ### Meteorology Data
 
