@@ -55,7 +55,10 @@ as a reference.
             - exporting_html.R
     -   helpers/ (folder that contains an extra step outside of the basic data acquisition/plotting functions):
         -   filtering.Rmd
+        -   workflowDiagram.jpg
 
 3.  Below is a workflow diagram of this repository.
-![Workflow Diagram](workflowDiagram.jpg)
-For a more comprehensive guide (with guiding questions), visit this ![Miro board](https://miro.com/app/board/uXjVMxiXxIU=/?moveToWidget=3458764560658402046&cot=14).
+
+![Workflow Diagram](helpers/workflowDiagram.jpg)
+
+    - For a more comprehensive guide (with guiding questions), visit this [Miro board](https://miro.com/app/board/uXjVMxiXxIU=/?moveToWidget=3458764560658402046&cot=14).
