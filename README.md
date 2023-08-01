@@ -58,7 +58,6 @@ as a reference.
         -   workflowDiagram.jpg
 
 3.  Below is a workflow diagram of this repository.
-
 ![Workflow Diagram](helpers/workflowDiagram.jpg)
 
     - For a more comprehensive guide (with guiding questions), visit this [Miro board](https://miro.com/app/board/uXjVMxiXxIU=/?moveToWidget=3458764560658402046&cot=14).
