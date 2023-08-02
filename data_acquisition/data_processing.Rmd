@@ -18,9 +18,9 @@ required to use this document. Pressing `Ctrl + Alt + R` (run all) for
 this markdown file would results in a `graphableData.RData` file being
 created and saved into the data folder.
 
-This file contains the data frame `mod_met` that can be used to graph,
-to visualize this data frame, simply load it by running the print
-function commented below:
+The result of this file contains the data frame `mod_met` that can be
+used to graph, to visualize this data frame, simply load it by running
+the print function commented below:
 
 ```{r}
 # load("../data/graphableData.RData")
@@ -117,7 +117,7 @@ Analysis](https://github.com/scott-hersey/EB_AQ_Network/blob/master/Gibson%20Par
 
     -   Wind Speed [mph]
 
--   Select the date range: `7/1/2022 to 2/28/2022` (this dataset is not
+-   Select the date range: `7/1/2022 to 8/1/2023` (this dataset is not
     inclusive of the last date)
 
 -   Select this timezone: `America/New_York`
@@ -143,11 +143,15 @@ and third code blocks to break the meteorology data down by monthly
 
 ### Quant-AQ Data
 
+Change the time range if you only want to break down data from a
+specific time range (to optimize speed). `Ctrl + F` the following: (time
+range change).
+
 ```{r}
 # Specify the columns to read
-modPM_cols <- c("pm1", "pm25", "pm10", "opcbin0", "opcbin1", "opcbin2", "opcbin3", "opcbin4", "opcbin5", "opcbin6", "opcbin7", "opcbin8", "opcbin9", "opcbin10", "opcbin11", "opcbin12", "opcbin13", "opcbin14", "opcbin15", "opcbin16", "opcbin17", "temp", "timestamp_local", "sn.x", "timestamp.x",)
+modPM_cols <- c("pm1", "pm25", "pm10", "opcbin0", "opcbin1", "opcbin2", "opcbin3", "opcbin4", "opcbin5", "opcbin6", "opcbin7", "opcbin8", "opcbin9", "opcbin10", "opcbin11", "opcbin12", "opcbin13", "opcbin14", "opcbin15", "opcbin16", "opcbin17", "timestamp_local", "sn.x", "timestamp.x")
 
-modulair_cols <- c("pm1", "pm25", "pm10", "co", "no", "no2", "o3", "opc.bin0", "opc.bin1", "opc.bin2", "opc.bin3", "opc.bin4", "opc.bin5", "opc.bin6", "opc.bin7", "opc.bin8", "opc.bin9", "opc.bin10","opc.bin11", "opc.bin12", "opc.bin13", "opc.bin14", "opc.bin15", "opc.bin16", "opc.bin17", "temp", "timestamp_local", "sn.x", "timestamp.x")
+modulair_cols <- c("pm1", "pm25", "pm10", "co", "no", "no2", "o3", "opc.bin0", "opc.bin1", "opc.bin2", "opc.bin3", "opc.bin4", "opc.bin5", "opc.bin6", "opc.bin7", "opc.bin8", "opc.bin9", "opc.bin10","opc.bin11", "opc.bin12", "opc.bin13", "opc.bin14", "opc.bin15", "opc.bin16", "opc.bin17", "timestamp_local", "sn.x", "timestamp.x")
 
 # Read in modPM devices' data
 modPM_devices <- c(
@@ -170,14 +174,14 @@ modPM <- suppressMessages({
   data <- modPM_devices %>%
     map_dfr(function(modPM_device) {
       paths <- c(
-        # Taking data from 07/2022 - 02/2023 (time range change)
+        # Taking data from 07/2022 - 07/2023 (time range change)
         sprintf(
-          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
+          "../data/QuantAQ/MODPM/brokenDown/%s/%s-2022-%02d.csv",
           modPM_device, modPM_device, 7:12
         ),
         sprintf(
-          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2023-%02d.csv",
-          modPM_device, modPM_device, 1:2
+          "../data/QuantAQ/MODPM/brokenDown/%s/%s-2023-%02d.csv",
+          modPM_device, modPM_device, 1:7
         )
       )
       map_dfr(paths, function(path) {
@@ -206,12 +210,12 @@ modulair <- suppressMessages({
       paths <- c(
         # Taking data from 07/2022 - 02/2023 (time range change)
         sprintf(
-          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2022-%02d.csv",
+          "../data/QuantAQ/MODPM/brokenDown/%s/%s-2022-%02d.csv",
           modulair_device, modulair_device, 7:12
         ),
         sprintf(
-          "../data/Quant-AQ/MOD-PM/broken-down/%s/%s-2023-%02d.csv",
-          modulair_device, modulair_device, 1:2
+          "../data/QuantAQ/MOD-PM/brokenDown/%s/%s-2023-%02d.csv",
+          modulair_device, modulair_device, 1:7
         )
       )
       map_dfr(paths, function(path) {

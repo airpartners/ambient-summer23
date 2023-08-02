@@ -6,7 +6,8 @@
 #' function then merges all data for that sensor (raw, final, all time in range)
 #' into the same data frame and saves that data frame into a .csv file.
 #'
-#' @param device_id A character value representing the
+#' @param device_id A character value representing the sensor ID for which data
+#'                  will be retrieved and processed.
 
 process_device_id <- function(device_id) {
   # STEP 1: RETRIEVING DATA FROM QUANT-AQ
