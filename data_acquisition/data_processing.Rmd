@@ -323,7 +323,7 @@ print(mod)
 ```{r}
 # Import meteorology file
 metdata <- suppressMessages({
-  list.files(path = "../data/Metdata/",
+  list.files(path = "../data/Metdata/brokenDown/",
              pattern = "*.csv", 
              full.names = TRUE) %>%
     purrr::map_dfr(read.csv)
