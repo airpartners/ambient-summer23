@@ -383,7 +383,6 @@ save.image("../data/graphableData.RData")
 # # Feel free to add any additional tests
 library(openair)
 
-print(mod_met)
 # Iterate over each unique sensor (sn) value
 unique_sensors <- unique(mod_met$sn)
 

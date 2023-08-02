@@ -13,12 +13,12 @@ files.
 
 Currently, this file is made to breakdown **Meteorology data**
 downloaded from the Iowa Environmental Mesonet and **Quant-AQ data**
-retrieved using `API_call.Rmd`. See the **FETCHING DATA TO IMPORT**
-session in this file for more details. As a side note, you want to, you
-can also rewrite `API_call.Rmd` to not merge monthly files. Press
-`Ctrl + Alt + R` to run all and breakdown all meteorology data and
+retrieved using `API_call.Rmd` into monthly files. As a side note, you
+want to, you can also rewrite `API_call.Rmd` to not merge monthly files.
+Press `Ctrl + Alt + R` to run all and breakdown all meteorology data and
 Quant-AQ data. Make sure that you have all the needed files so that the
-code doesn't error out.
+code doesn't error out. See the **FETCHING DATA TO IMPORT** session in
+this file for more details.
 
 ## PACKAGES AND INITAL SETTINGS
 
@@ -30,7 +30,7 @@ install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 # Load required packages for data manipulation and analysis
 invisible(sapply(packages, library, character.only = TRUE))
 
-# Import helper function
+# Import helper functions
 source("./helpers/data_breakdown_helpers.R")
 
 # Set knit options
@@ -89,7 +89,8 @@ Use the following download options: `comma delimited` ,
 
 `denote trace with blank string`
 
-Create a folder for the met data: ~/data/Metdata/raw, and add the downloaded data file there.
+Create a folder for the met data: \~/data/Metdata/raw, and add the
+downloaded data file there.
 
 ## IMPORT DATA AND PRE-PROCESSING
 
@@ -109,21 +110,21 @@ end_date <- ymd("2023-08-01")
 # Define a list of device IDs
 device_ids <- c(
   "MOD-00024",
-  # "MOD-00025",
-  # "MOD-00026",
-  # "MOD-00027",
-  # "MOD-00028",
-  # "MOD-PM-00141",
-  # "MOD-PM-00211",
-  # "MOD-PM-00212",
-  # "MOD-PM-00213",
-  # "MOD-PM-00214",
-  # "MOD-PM-00216",
-  # "MOD-PM-00217",
-  # "MOD-PM-00221",
-  # "MOD-PM-00222",
-  # "MOD-PM-00224",
-  # "MOD-PM-00226",
+  "MOD-00025",
+  "MOD-00026",
+  "MOD-00027",
+  "MOD-00028",
+  "MOD-PM-00141",
+  "MOD-PM-00211",
+  "MOD-PM-00212",
+  "MOD-PM-00213",
+  "MOD-PM-00214",
+  "MOD-PM-00216",
+  "MOD-PM-00217",
+  "MOD-PM-00221",
+  "MOD-PM-00222",
+  "MOD-PM-00224",
+  "MOD-PM-00226",
   "MOD-PM-00230",
   "MOD-PM-00231"
 )
@@ -137,9 +138,8 @@ for (sensor_id in device_ids) {
   data <- load_csv_data(file_name, output_folder)
   # Convert timestamp_local column to datetime
   data$timestamp_local <- ymd_hms(data$timestamp_local)
-  name <- sensor_id
-  # Breakdown csv
-  breakdown_csv(data, name, start_date, end_date)
+  # Breakdown csv by month
+  breakdown_csv(data, sensor_id, start_date, end_date)
 }
 ```
 
@@ -160,6 +160,6 @@ data <- load_csv_data(file_name, output_folder)
 data$valid <- parse_date_time(data$valid, orders = "ymd HMS", truncated = 6)
 data$timestamp_local <- data$valid # Name change to fit with function
 name <- "metdata"
-# Breakdown csv
+# Breakdown csv by month
 breakdown_csv(data, name, start_date, end_date)
 ```
