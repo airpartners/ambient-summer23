@@ -89,6 +89,8 @@ Use the following download options: `comma delimited` ,
 
 `denote trace with blank string`
 
+Create a folder for the met data: ~/data/Metdata/raw, and add the downloaded data file there.
+
 ## IMPORT DATA AND PRE-PROCESSING
 
 Change the time range if you only want to break down data from a
@@ -107,21 +109,21 @@ end_date <- ymd("2023-08-01")
 # Define a list of device IDs
 device_ids <- c(
   "MOD-00024",
-  "MOD-00025",
-  "MOD-00026",
-  "MOD-00027",
-  "MOD-00028",
-  "MOD-PM-00141",
-  "MOD-PM-00211",
-  "MOD-PM-00212",
-  "MOD-PM-00213",
-  "MOD-PM-00214",
-  "MOD-PM-00216",
-  "MOD-PM-00217",
-  "MOD-PM-00221",
-  "MOD-PM-00222",
-  "MOD-PM-00224",
-  "MOD-PM-00226",
+  # "MOD-00025",
+  # "MOD-00026",
+  # "MOD-00027",
+  # "MOD-00028",
+  # "MOD-PM-00141",
+  # "MOD-PM-00211",
+  # "MOD-PM-00212",
+  # "MOD-PM-00213",
+  # "MOD-PM-00214",
+  # "MOD-PM-00216",
+  # "MOD-PM-00217",
+  # "MOD-PM-00221",
+  # "MOD-PM-00222",
+  # "MOD-PM-00224",
+  # "MOD-PM-00226",
   "MOD-PM-00230",
   "MOD-PM-00231"
 )

@@ -111,7 +111,7 @@ monthly_graphs <-
     ggplot(month_data, aes(x = sitename, y = value, fill = pollutant)) +
       geom_col(position = "stack") +
       geom_text(
-        aes(label = sprintf("%.2e", value)),
+        aes(label =  value),
         position = position_stack(vjust = 0.5),
         color = "black",
         size = 1.5
@@ -154,7 +154,7 @@ max_width <- max(table(yearly_sums$sitename))
 total_plot <- ggplot(yearly_sums, aes(x = sitename, y = value, fill = pollutant)) +
   geom_col(position = "stack") +
   geom_text(
-    aes(label = sprintf("%.2e", value)),
+    aes(label = round(value,digits =2)),
     position = position_stack(vjust = 0.5),
     color = "black",
     size = 2

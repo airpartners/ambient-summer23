@@ -48,7 +48,7 @@ mod_met_pm10 <- mod_met[, c("date", "sn", "pm10", "ws", "wd")]
   # if you found a better way
 Sys.setenv(TZ = "America/New_York")
 start_date <- as.Date("2022-07-01")
-end_date <- as.Date("2023-02-28")
+end_date <- as.Date("2023-08-01")
 mod_met_filtered <- mod_met_pm10[mod_met_pm10$date >= start_date & mod_met_pm10$date <= end_date, ]
 
 print(mod_met_filtered)
@@ -113,10 +113,10 @@ for (sensor in unique_sensors) {
   peaks <- peaks_list[[peaks_array_name]]
   pm10_data <- subset(pm10_hourly, sn == sensor)
   if (is.vector(peaks)) {
-    peak_dates <- pm25_data$hour[peaks[2]]
+    peak_dates <- pm10_data$hour[peaks[2]]
   }
   else {
-    peak_dates <- pm25_data$hour[peaks[, 2]]
+    peak_dates <- pm10_data$hour[peaks[, 2]]
   }
   peak_dates <- as.Date(peak_dates)
   peak_dates <- na.omit(peak_dates)
@@ -170,7 +170,7 @@ mod_met_pm25 <- mod_met[, c("date", "sn", "pm25", "ws", "wd")]
   # if you found a better way
 Sys.setenv(TZ = "America/New_York")
 start_date <- as.Date("2022-07-01")
-end_date <- as.Date("2023-02-28")
+end_date <- as.Date("2023-08-01")
 mod_met_filtered <- mod_met_pm25[mod_met_pm25$date >= start_date & mod_met_pm25$date <= end_date, ]
 
 print(mod_met_filtered)
@@ -210,7 +210,7 @@ Slides](https://docs.google.com/presentation/d/1TezTllpU_WAIBqaCEc90N8ZDP2sowta_
 documenting a couple of these events.
 
 ```{r}
-# Step 1: Create a dataset pm10_hourly that averages data in mod_met_filtered by the hour
+# Step 1: Create a dataset pm25_hourly that averages data in mod_met_filtered by the hour
 pm25_hourly <- mod_met_filtered %>%
   mutate(date = as.POSIXct(date)) %>%
   group_by(sn, hour = lubridate::floor_date(date, unit = "hour")) %>%
