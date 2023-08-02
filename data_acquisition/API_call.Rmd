@@ -28,7 +28,8 @@ B. **DEFINE VARIABLES**
 -   You can find sensors information, data-retrieving time range, API
     key and API URL here.
 
-C. **RETTRIEVING DATA INTO FOLDERS**
+C. **RETRIEVING DATA INTO FOLDERS**
+
 1.  Check if the appropriate data folders exist and create them if not.
 
 2.  `process_device_id` function:
@@ -84,7 +85,7 @@ api_key <- "VUOLNUDTM70QZ7Z9G0Z78XA7" # Cherry's API Key
 
 # Define a time range to loop over (time range change)
 time_range <-
-  seq(as.Date("2022-07-01"), as.Date("2023-08-01"), by = "day")
+  seq(as.Date("2023-07-20"), as.Date("2023-08-01"), by = "day")
 time_range <- format(time_range, "%Y-%m-%d")
 
 # Define a list of device IDs
