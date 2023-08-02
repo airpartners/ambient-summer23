@@ -83,7 +83,7 @@ modmet_daily$pm1_category <-
   factor(modmet_daily$pm1_category, levels = c("Bad", "Medium", "Good"))
 
 # Extract the month from the 'day' column
-modmet_daily$month <- month(modmet_daily$day, label = TRUE)
+modmet_daily$month <- month(modmet_daily$day)
 
 # Iterate over each unique sensor (sn) value
 unique_sensors <- unique(modmet_daily$sn)
