@@ -46,6 +46,6 @@ As another side note, as of 08/01/23, this repository is written and run solely 
 
     - For a more comprehensive guide (with guiding questions), visit this [Miro board](https://miro.com/app/board/uXjVMxiXxIU=/?moveToWidget=3458764560658402046&cot=14).
   
-4. [Optional] Download data from [this Google Drive folder]([url](https://drive.google.com/drive/folders/1-R8-lgr2n8miD45wgWmB0cO3nS2AZrta)https://drive.google.com/drive/folders/1-R8-lgr2n8miD45wgWmB0cO3nS2AZrta)
+4. [Optional] Download data from [this Google Drive folder](https://drive.google.com/drive/folders/1-R8-lgr2n8miD45wgWmB0cO3nS2AZrta)
 
     - Note that this is a very big data folder and you can refer to the miroboard/the markdown files in this repository to know which file(s) to download if you want to save time
