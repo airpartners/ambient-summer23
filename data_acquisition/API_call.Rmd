@@ -29,7 +29,7 @@ B. **DEFINE VARIABLES**
     key and API URL here.
 
 C. **RETTRIEVING DATA INTO FOLDERS**
-
+asdfa
 1.  Check if the appropriate data folders exist and create them if not.
 
 2.  `process_device_id` function:
