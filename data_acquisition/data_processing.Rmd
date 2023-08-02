@@ -214,7 +214,7 @@ modulair <- suppressMessages({
           modulair_device, modulair_device, 7:12
         ),
         sprintf(
-          "../data/QuantAQ/MOD-PM/brokenDown/%s/%s-2023-%02d.csv",
+          "../data/QuantAQ/MODPM/brokenDown/%s/%s-2023-%02d.csv",
           modulair_device, modulair_device, 1:7
         )
       )
@@ -235,7 +235,8 @@ print(mod)
 ```
 
 ```{r}
-# Merging the bins in modPM and modulair data
+# Merging the bins in modPM and modulair data - creating consistent variable names between Modulair and Modulair-PM. 
+# If this throws an error, confirm that the folder name for MOD-PM data matches what's in the code in the chunk above (i.e. MODPM vs MOD-PM)
 for (i in 0:17) {
   bin_name <- paste0("bin", i)
   opc_col_name <- paste0("opc.bin", i)
@@ -254,7 +255,7 @@ print(mod)
 ```
 
 ```{r}
-# Rename to match manually downloaded datasets
+# Rename to match manually downloaded datasets, since data pulled via API have different names than via manual download.
 # Comment this out if it errors out because the name is already correct
 mod <- mod %>%
   rename(timestamp = timestamp.x, sn = sn.x)
@@ -323,7 +324,7 @@ print(mod)
 ```{r}
 # Import meteorology file
 metdata <- suppressMessages({
-  list.files(path = "../data/Metdata/",
+  list.files(path = "../data/Metdata/brokenDown",
              pattern = "*.csv", 
              full.names = TRUE) %>%
     purrr::map_dfr(read.csv)
@@ -362,6 +363,7 @@ mod_met$date <- mod_met$date.x
 
 # Delete unnecessary columns created from merging mod and metdata
 mod_met <- subset(mod_met, select = -c(date.x, date.y))
+print(mod_met)
 ```
 
 ### Cleaning Up and Save the Work Space
@@ -379,8 +381,14 @@ save.image("../data/graphableData.RData")
 ```{r}
 # # Uncomment to test timeVar plots
 # # Feel free to add any additional tests
-# library(openair)
-# 
-# print(mod_met)
-# openair::timeVariation(mod_met, pollutant = c("ws", "wd", "tmpc"), normalise = TRUE)
+library(openair)
+
+print(mod_met)
+# Iterate over each unique sensor (sn) value
+unique_sensors <- unique(mod_met$sn)
+
+for (sensor in unique_sensors) {
+data_for_sensor <- mod_met %>% filter(sn == sensor)
+openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm25", "pm10"), normalise = TRUE)
+}
 ```
