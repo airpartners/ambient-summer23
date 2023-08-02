@@ -28,7 +28,7 @@ install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 invisible(sapply(packages, library, character.only = TRUE))
 
 # Import helper function
-source("data_breakdown_helpers.R")
+source("./helpers/data_breakdown_helpers.R")
 
 # Set knit options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
