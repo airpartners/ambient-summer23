@@ -1,5 +1,5 @@
 ---
-title: "Filtering"
+title: "Sanity Check"
 author: "Cherry Pham"
 date: "2023-07-25"
 output: html_document
@@ -8,9 +8,40 @@ editor_options:
     wrap: 72
 ---
 
-This Markdown file is created to detect and filter regional events that
-affect 5 or more sensors since we are only interested in pollution local
-to Roxbury.
+This Markdown file is created to detect and filter regional events that affect 5
+or more sensors since we are only interested in pollution local to Roxbury. Read
+the *Data Guide* section below to navigate this file.
+
+## DATA GUIDE
+
+This section describe the Outline (the links you can go to from the tab on the
+right that's under the run button). Hopefully this makes the different sections'
+content more easy to access. 
+
+A. **PACKAGES AND INITIAL SETTINGS**
+
+-   You can find packages installation and loading, helper function import and
+    knit options here.
+
+B. **IMPORT DATA AND PRE-PROCESSING**
+
+-   Load *graphableData.RData* and get the `mod_met` data frame into the
+    work space
+
+C. **PM10 FILTRATION/PM25 FILTRATION/PM1 FILTRATION**
+
+-   Create a sub-df for speed
+-   Time plotting all time PMs data (great for a sanity check of what is inside
+    the `mod_met` data frame)
+-   Create a histogram that shows days with high readings and the frequency of
+    readings (how many sensors) per each of those days. You can change the
+    threshold of what is considered a high reading per each type of PM.
+
+C. **FILTERING**
+
+-   [To do] Pick out dates you want to delete PM1/PM2.5/PM10 data of
+-   The code chunks in this section deletes PM1/PM2.5/PM10 data of the days you
+    insert and save the new data frame as an .Rdata file.
 
 ## PACKAGES AND INITAL SETTINGS
 
@@ -31,6 +62,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```{r}
 # Load data frame
 load("../data/graphableData.RData")
+print(mod_met)
 ```
 
 ## PM10 FILTRATION
@@ -290,7 +322,7 @@ mod_met_pm1 <- mod_met[, c("date", "sn", "pm1", "ws", "wd")]
   # if you found a better way
 Sys.setenv(TZ = "America/New_York")
 start_date <- as.Date("2022-07-01")
-end_date <- as.Date("2023-02-28")
+end_date <- as.Date("2023-08-01")
 mod_met_filtered <- mod_met_pm1[mod_met_pm1$date >= start_date & mod_met_pm1$date <= end_date, ]
 
 print(mod_met_filtered)
@@ -393,4 +425,55 @@ ggplot(histogram_data, aes(x = as.character(date), y = count)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
     text = element_text(family = "Helvetica"))
+```
+
+## FILTERING
+
+Un-comment the bottom of this cell, edit the dates, and remove "contaminated
+days" - I commented them out so you don't accidentally hit run all and delete
+things you don't want to.
+
+```{r}
+library(dplyr)
+
+# Function to filter data by dates and zero out a specified column
+filtering <- function(dates, column_name, data) {
+  #'
+  #' @param dates A char or list of chars representing the dates to filter.
+  #' @param column_name A character value specifying the column to be zeroed out.
+  #' @param data A data frame containing the data to be filtered and modified.
+  #'
+  #' @return The updated data frame
+  # Convert the input dates to a list if it is a single date
+  if (!is.list(dates)) {
+    dates <- list(dates)
+  }
+  
+  # Convert the 'date' column to a Date object
+  data$date <- as.Date(data$date)
+  
+  # Iterate over each date and zero out the specified column
+  for (date in dates) {
+    data[data$date == date, column_name] <- 0
+  }
+  
+  # Convert the 'date' column to POSIXct object
+  data$date <- as.POSIXct(data$date)
+  return(data)
+}
+
+# # Insert the dates to remove here (time range change)
+# mod_met <- filtering(c("2022-08-22", "2023-08-23"), "pm1", mod_met)
+# mod_met <- filtering(c("2023-08-22", "2023-08-23"), "pm25", mod_met)
+# mod_met <- filtering("2022-10-26", "pm10", mod_met)
+```
+
+Save the updated mod_met dataframe
+
+```{r}
+# Remove all objects except the final data frame
+rm(list = setdiff(ls(), "mod_met"))
+
+# Save environment to graphableData.RData
+save.image("../data/graphableData_filtered.RData")
 ```
