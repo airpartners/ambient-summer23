@@ -8,20 +8,20 @@ editor_options:
     wrap: 72
 ---
 
-This Markdown file is created to detect and filter regional events that affect 5
-or more sensors since we are only interested in pollution local to Roxbury. Read
-the *Data Guide* section below to navigate this file.
+This Markdown file is created to detect and filter regional events that
+affect 5 or more sensors since we are only interested in pollution local
+to Roxbury. Read the *Data Guide* section below to navigate this file.
 
 ## DATA GUIDE
 
-This section describe the Outline (the links you can go to from the tab on the
-right that's under the run button). Hopefully this makes the different sections'
-content more easy to access. 
+This section describe the Outline (the links you can go to from the tab
+on the right that's under the run button). Hopefully this makes the
+different sections' content more easy to access.
 
 A. **PACKAGES AND INITIAL SETTINGS**
 
--   You can find packages installation and loading, helper function import and
-    knit options here.
+-   You can find packages installation and loading, helper function
+    import and knit options here.
 
 B. **IMPORT DATA AND PRE-PROCESSING**
 
@@ -31,17 +31,18 @@ B. **IMPORT DATA AND PRE-PROCESSING**
 C. **PM10 FILTRATION/PM25 FILTRATION/PM1 FILTRATION**
 
 -   Create a sub-df for speed
--   Time plotting all time PMs data (great for a sanity check of what is inside
-    the `mod_met` data frame)
--   Create a histogram that shows days with high readings and the frequency of
-    readings (how many sensors) per each of those days. You can change the
-    threshold of what is considered a high reading per each type of PM.
+-   Time plotting all time PMs data (great for a sanity check of what is
+    inside the `mod_met` data frame)
+-   Create a histogram that shows days with high readings and the
+    frequency of readings (how many sensors) per each of those days. You
+    can change the threshold of what is considered a high reading per
+    each type of PM.
 
 C. **FILTERING**
 
 -   [To do] Pick out dates you want to delete PM1/PM2.5/PM10 data of
--   The code chunks in this section deletes PM1/PM2.5/PM10 data of the days you
-    insert and save the new data frame as an .Rdata file.
+-   The code chunks in this section deletes PM1/PM2.5/PM10 data of the
+    days you insert and save the new data frame as an .Rdata file.
 
 ## PACKAGES AND INITAL SETTINGS
 
@@ -63,6 +64,68 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 # Load data frame
 load("../data/graphableData.RData")
 print(mod_met)
+
+mod_met_trunc <- mod_met[, c("date", "sn", "pm1", "pm25", "pm10", "sitename")]
+print(mod_met_trunc)
+```
+
+## SUBSETS VIEWING
+
+Un-comment to view a specific chunk of data (from specific
+sensor/month/week)
+
+```{r}
+# Specific sensor // comment things out if you want
+sensors <- c(
+  "MOD-00024",
+  "MOD-00025",
+  "MOD-00026",
+  "MOD-00027",
+  "MOD-00028",
+  "MOD-PM-00141",
+  "MOD-PM-00211",
+  "MOD-PM-00212",
+  "MOD-PM-00213",
+  "MOD-PM-00214",
+  "MOD-PM-00216",
+  "MOD-PM-00217",
+  "MOD-PM-00221",
+  "MOD-PM-00222",
+  "MOD-PM-00224",
+  "MOD-PM-00226",
+  "MOD-PM-00230",
+  "MOD-PM-00231"
+)
+
+# Step 1: Initialize an empty data frame
+average_data_df <- data.frame(
+  sn = character(),
+  sitename = character()
+)
+
+# Iterate over each sensor in the "sensors" list
+for (sensor in sensors) {
+  # Specify sensor
+  specific_sensor <- subset(mod_met_trunc, sn == sensor)
+  
+  # Specify time range
+  Sys.setenv(TZ = "America/New_York")
+  start_date <- as.Date("2022-07-01")
+  end_date <- as.Date("2023-08-01")
+  subset_filtered <- specific_sensor[specific_sensor$date >= start_date &
+                                       specific_sensor$date <= end_date, ]
+    
+  # Calculate daily averages
+  daily_averages <- aggregate(
+    cbind(pm1, pm25, pm10) ~ as.Date(date), 
+    subset_filtered, 
+    FUN = mean
+  )
+  
+    # Step 3: Append daily averages to the new data frame
+  average_data_df <- rbind(average_data_df, daily_averages)
+  print(average_data_df)
+}
 ```
 
 ## PM10 FILTRATION
@@ -73,7 +136,7 @@ Rerun this every time you work with a different group of PM
 
 ```{r}
 # Create sub-df to reduce temp memory usage
-mod_met_pm10 <- mod_met[, c("date", "sn", "pm10", "ws", "wd")]
+mod_met_pm10 <- mod_met_trunc[, c("date", "sn", "pm10", "ws", "wd", "sitename")]
 
 # Filter the data to include only the desired time range (time range change)
 # I'm using this to zoom in and out of the x-axis, PLS go ahead and change it
@@ -90,11 +153,11 @@ print(mod_met_filtered)
 
 ```{r}
 # Get a vector of unique sensors in the dataframe
-sensors <- unique(mod_met_filtered$sn)
+sensors <- unique(mod_met_filtered$sitename)
 
 # Loop through each sensor and generate the plots
 for (sensor in sensors) {
-  sensor_data <- subset(mod_met_filtered, sn == sensor)
+  sensor_data <- subset(mod_met_filtered, sitename == sensor)
   p <- timePlot(
     sensor_data,
     pollutant = "pm10",
@@ -102,10 +165,10 @@ for (sensor in sensors) {
     main = paste("Sensor:", sensor),
     avg.time = "hour",
     y.relation = "same",
-    ylim = c(0, 300),
-    # Comment this out if you don't want the wind arrows
-    # Also remember to take out the comma above
-    windflow = list(col = "grey", lwd= 2, scale = 0.1)
+    ylim = c(0, 300)
+    # # Comment this out if you don't want the wind arrows
+    # # Also remember to take out the comma above
+    # windflow = list(col = "grey", lwd= 2, scale = 0.1)
   )
 }
 ```
@@ -195,7 +258,7 @@ Rerun this every time you work with a different group of PM
 
 ```{r}
 # Create sub-df to reduce temp memory usage
-mod_met_pm25 <- mod_met[, c("date", "sn", "pm25", "ws", "wd")]
+mod_met_pm25 <- mod_met_trunc[, c("date", "sn", "pm25", "ws", "wd")]
 
 # Filter the data to include only the desired time range (time range change)
 # I'm using this to zoom in and out of the x-axis, PLS go ahead and change it
@@ -315,7 +378,7 @@ Rerun this every time you work with a different group of PM
 
 ```{r}
 # Create sub-df to reduce temp memory usage
-mod_met_pm1 <- mod_met[, c("date", "sn", "pm1", "ws", "wd")]
+mod_met_pm1 <- mod_met_trunc[, c("date", "sn", "pm1", "ws", "wd")]
 
 # Filter the data to include only the desired time range (time range change)
 # I'm using this to zoom in and out of the x-axis, PLS go ahead and change it
@@ -429,9 +492,9 @@ ggplot(histogram_data, aes(x = as.character(date), y = count)) +
 
 ## FILTERING
 
-Un-comment the bottom of this cell, edit the dates, and remove "contaminated
-days" - I commented them out so you don't accidentally hit run all and delete
-things you don't want to.
+Un-comment the bottom of this cell, edit the dates, and remove
+"contaminated days" - I commented them out so you don't accidentally hit
+run all and delete things you don't want to.
 
 ```{r}
 library(dplyr)

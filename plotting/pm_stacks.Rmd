@@ -13,7 +13,8 @@ month and the total pollution levels for the year.
 
 The resulting figures are saved in `ambient-summer23/figures/pm_stacks/`
 and can also be visualized below. Simply press `Ctrl + Alt + R` to run
-all and get the figures.
+all and get the figures. I recommend looking at the functions in this file -
+`./helpers/ploting_helpers.R` to explore your options and modify stuff.
 
 ## INITAL SETTINGS
 
@@ -24,6 +25,9 @@ install.packages(packages[!sapply(packages, requireNamespace, quietly = TRUE)])
 
 # Load required packages for data manipulation and analysis
 invisible(sapply(packages, library, character.only = TRUE))
+
+# Import helper functions
+source("./helpers/plotting_helpers.R")
 
 # Set options
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -42,11 +46,6 @@ Create bar graphs with each bar representing the pollutants from a
 single sensor
 
 ```{r}
-# Function to save a plot as SVG
-save_plot_as_jpg <- function(plot, filename) {
-  ggsave(plot, filename = filename, device = "jpg", width = 10, height = 6)
-}
-
 # Create a subset of the data for PM1, PM2.5, and PM10
 pm_subset <- mod_met[, c("sitename", "pm1", "pm25", "pm10", "date")]
 
@@ -54,7 +53,7 @@ pm_subset <- mod_met[, c("sitename", "pm1", "pm25", "pm10", "date")]
 pm_subset$date <- as.Date(pm_subset$date)
 pm_subset$month <- format(pm_subset$date, "%Y-%m")
 
-# Reshape the data into long format and calculate monthly averages
+# Reshape the data into long format
 pm_subset_long <-
   tidyr::pivot_longer(
     pm_subset,
@@ -67,111 +66,58 @@ pm_subset_long <-
 pm_subset_long$pollutant <-
   factor(pm_subset_long$pollutant, levels = c("pm1", "pm25", "pm10"))
 
+# Calculate monthly averages
 monthly_averages <- pm_subset_long %>%
   group_by(sitename, month, pollutant) %>%
   summarise(value = mean(value))
 
 # Assign colors to each pollutant
-color_palette <-
-  wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
-color_mapping <-
-  c("pm10" = color_palette[1],
-    "pm25" = color_palette[3],
-    "pm1" = color_palette[2])
+color_palette <- wes_palette(n = 3, name = "GrandBudapest1", type = "continuous")
+color_mapping <- c("pm10" = color_palette[1],
+                   "pm25" = color_palette[3],
+                   "pm1" = color_palette[2])
 
-# Function to find the maximum sum of PM1, PM2.5, and PM10 values for each month
-find_max_pollutant <- function(data) {
-  max_sensors <- data %>%
-    group_by(month, sitename) %>%
-    summarise(sum_value = sum(value)) %>%
-    group_by(month) %>%
-    filter(sum_value == max(sum_value)) %>%
-    select(month, sitename, sum_value)
-  
-  return(max_sensors)
-}
 
+```
+
+```{r}
 # Find the sensor with the maximum sum of PM1, PM2.5, and PM10 values
-  # for each month
+  # for each month, then find the overall maximum value for y-axis scaling
 max_sensors <- find_max_pollutant(monthly_averages)
+y_axis_max <- max(max_sensors$sum_value)
 
-# Find the overall maximum value for y-axis scaling
-max_value <- max(max_sensors$sum_value)
-print(max_value)
-
-# Create separate graphs for each month and sensor
-monthly_graphs <-
-  lapply(unique(monthly_averages$month), function(m) {
-    month_data <- monthly_averages[monthly_averages$month == m, ]
-    
-    # Find the sensor with the maximum sum for the month
-    max_sensor <- max_sensors$sum_value[max_sensors$month == m]
-    
-    # Create the bar graph
-    ggplot(month_data, aes(x = sitename, y = value, fill = pollutant)) +
-      geom_col(position = "stack") +
-      geom_text(
-        aes(label =  value),
-        position = position_stack(vjust = 0.5),
-        color = "black",
-        size = 1.5
-      ) +
-      labs(x = "Sensor ID", y = "ug/m3") +
-      ggtitle(paste("Monthly Average Pollutant Levels by Sensor -", m)) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(
-        angle = 90,
-        vjust = 0.5,
-        size = 7
-      ),
-      legend.position = "bottom") +
-      scale_fill_manual(values = color_mapping,
-                        guide = guide_legend(reverse = FALSE)) +
-      # Adjust the ylim with the overall maximum value
-      coord_cartesian(ylim = c(0, max_value))  
-  })
+# Generate montly graphs
+monthly_graphs <- generate_monthly_graphs(monthly_averages, y_axis_max, color_mapping)
 
 # Print the monthly graphs
 for (graph in monthly_graphs) {
   print(graph)
 }
+```
 
-# Save the monthly graphs as jpg files
-for (i in seq_along(monthly_graphs)) {
-  filename <- paste0("../figures/pm_stacks/monthly_graph_", i, ".jpg")
-  save_plot_as_jpg(monthly_graphs[[i]], filename)
-}
+```{r}
+# Specify the year you want to filter
+specified_year <- 2022
 
 # Sum PM1, PM2.5, and PM10 per sensor by year
 yearly_sums <- pm_subset_long %>%
+  filter(lubridate::year(date) == specified_year) %>%
   group_by(sitename, year = lubridate::year(date), pollutant) %>%
   summarise(value = sum(value))
 
-# Calculate the maximum bar width for scaling the text size
-max_width <- max(table(yearly_sums$sitename))
+```
 
-# Create a graph for total PM1, PM2.5, and PM10 per sensor by year
-total_plot <- ggplot(yearly_sums, aes(x = sitename, y = value, fill = pollutant)) +
-  geom_col(position = "stack") +
-  geom_text(
-    aes(label = round(value,digits =2)),
-    position = position_stack(vjust = 0.5),
-    color = "black",
-    size = 2
-  ) +
-  labs(x = "Sensor ID", y = "ug/m3") +
-  ggtitle("Total Pollutant Levels by Sensor - Yearly Sum") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(
-    angle = 90,
-    vjust = 0.5,
-    size = 7
-  ),
-  legend.position = "bottom") +
-  scale_fill_manual(
-    values = color_mapping,
-    breaks = c("pm1", "pm25", "pm10"),
-    guide = guide_legend(reverse = FALSE)
-  )
-save_plot_as_jpg(total_plot, "../figures/pm_stacks/total_pollutant_levels.jpg")
+```{r}
+yearly_graph <- generate_yearly_graph(yearly_sums, color_mapping)
+print(yearly_graph) # There's a full window button that helps the preview look less nasty
+```
+
+```{r}
+# # Save the monthly graphs as jpg files
+# for (i in seq_along(monthly_graphs)) {
+#   filename <- paste0("../figures/pm_stacks/monthly_graph_", i, ".jpg")
+#   save_plot_as_jpg(monthly_graphs[[i]], filename)
+# }
+# # Save the yearly graph as a jpg file
+# save_plot_as_jpg(total_plot, "../figures/pm_stacks/total_pollutant_levels.jpg")
 ```

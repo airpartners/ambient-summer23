@@ -11,10 +11,9 @@ editor_options:
 This file creates maps using the leaflet function and add data in
 representative circles.
 
-Simply press `Ctrl + Alt + R` to run all and get the figures. Go to
-`ambient-summer23/helpers/` and run the file `exporting_html.R`
-according to instructions in the file to get the html export of this
-file.
+Simply press `Ctrl + Alt + R` to run all and get the figures. Go to `./helpers/`
+and run the file `exporting_html.R` according to instructions in the file to get
+the html export of this file.
 
 ## INITIAL SETTINGS
 

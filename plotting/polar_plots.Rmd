@@ -10,10 +10,11 @@ editor_options:
 This file generates PM1, PM2.5, and PM10 polar plots on a map showing to
 each sensor's location and the corresponding pollution readings.
 
-Simply press `Ctrl + Alt + R` to run all and get the figures. Go to
-`ambient-summer23/helpers/` and run the file `exporting_html.R`
-according to instructions in the file to get the html export of this
-file.
+Simply press `Ctrl + Alt + R` to run all and get the figures. Go to `./helpers/`
+and run the file `exporting_html.R` according to instructions in the file to get
+the html export of this file. Note that this file is quite memory taxing so make
+sure that your R memory (the pie chart at the top of the Environment tab) is
+green to make sure nothing crashes. 
 
 ## INITIAL SETTINGS
 
@@ -35,23 +36,13 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 # Load data frame
 load("../data/graphableData.RData")
 
-# Calculate the average of each PM
-averagePM1 <- mean(mod_met$pm1)
-averagePM25 <- mean(mod_met$pm25)
-averagePM10 <- mean(mod_met$pm10)
-
-# Set the threshold for significant difference
-threshold <- 2
-
-# Filter out rows where the column value is significantly bigger than the average
-mod_met_filtered <- mod_met[mod_met$pm1 <= averagePM1 * threshold, ]
-mod_met_filtered <- mod_met[mod_met$pm25 <= averagePM25 * threshold, ]
-mod_met_filtered <- mod_met[mod_met$pm10 <= averagePM10 * threshold, ]
-
-# Filter the data to include only the desired time range
+# Filter the data to include only the desired time range (time range change)
 start_date <- as.Date("2022-07-01")
 end_date <- as.Date("2023-02-28")
 mod_met_filtered <- mod_met[mod_met$date >= start_date & mod_met$date <= end_date, ]
+
+# Make a smaller dataset so things run faster
+mod_met_filtered <- mod_met_filtered[, c("date", "sn", "pm1", "pm25", "pm10", "ws", "wd", "lat", "lon")]
 ```
 
 ## POLAR PLOTTING
@@ -98,8 +89,7 @@ polarMap(
 ### Plotting all PMs Polar Plots
 
 Create a map with the average polar plots w/ of each pollution values
-(PM1, PM2.5, PM10) over certain periods of time (all time, monthly,
-daily, *hourly*)
+(PM1, PM2.5, PM10) - toggle/normalize.
 
 ```{r}
 polarMap(
