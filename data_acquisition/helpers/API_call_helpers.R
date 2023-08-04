@@ -1,6 +1,5 @@
 #' Retrieve a single device's data and save to csv
 #'
-#' @description
 #' This function takes a sensor ID and make an API call to https://quant-aq.com/
 #' to retrieve raw and final data from Roxbury MODPM and Modulair devices. The
 #' function then merges all data for that sensor (raw, final, all time in range)
@@ -8,7 +7,6 @@
 #'
 #' @param device_id A character value representing the sensor ID for which data
 #'                  will be retrieved and processed.
-
 process_device_id <- function(device_id) {
   # STEP 1: RETRIEVING DATA FROM QUANT-AQ
   # Initialize empty sensor data frame
